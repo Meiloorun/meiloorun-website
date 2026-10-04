@@ -1,0 +1,213 @@
+.section {
+  --section-gap: clamp(24px, 5vw, 80px);
+  --section-media-ratio: 1fr;
+  --section-surface: var(--color-paper);
+  position: relative;
+  isolation: isolate;
+  scroll-margin-top: 24px;
+  padding-block: 48px;
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--page-width);
+  margin-inline: auto;
+}
+
+.decorations {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.decorations[data-clip='true'] {
+  overflow: clip;
+}
+
+.layout {
+  display: grid;
+  gap: var(--section-gap);
+  align-items: center;
+}
+
+.content, .media, .secondary {
+  min-width: 0;
+}
+
+.content {
+  overflow-wrap: anywhere;
+}
+
+.image {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.footer {
+  margin-top: 24px;
+}
+
+.eyebrow {
+  margin-bottom: 20px;
+}
+
+.title {
+  margin: 0 0 24px;
+  font: 48px / 1.05 var(--font-display);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.secondary {
+  grid-column: 1 / -1;
+}
+
+.section[data-media-position='left'] > .container > .layout {
+  grid-template-columns: var(--section-media-ratio) 1fr;
+}
+
+.section[data-media-position='right'] > .container > .layout {
+  grid-template-columns: 1fr var(--section-media-ratio);
+}
+
+/* Center places media between the primary and secondary slots;
+without secondary it stacks. */
+.section[data-three-columns] > .container > .layout {
+  grid-template-columns: 1fr var(--section-media-ratio) 1fr;
+}
+
+.section[data-three-columns] > .container > .layout > .secondary {
+  grid-column: auto;
+}
+
+.section[data-media-width='compact'] {
+  --section-media-ratio: .68fr;
+}
+
+.section[data-media-width='wide'] {
+  --section-media-ratio: 1.4fr;
+}
+
+.section[data-media-position='center'] > .container > .layout > .media {
+  width: 100%;
+  max-width: 600px;
+  justify-self: center;
+}
+
+.section[data-align='start'] > .container > .layout {
+  align-items: start;
+}
+
+.section[data-align='end'] > .container > .layout {
+  align-items: end;
+}
+
+.section[data-text-align='center'] > .container > .layout > .content {
+  text-align: center;
+}
+
+.section[data-text-align='right'] > .container > .layout > .content {
+  text-align: right;
+}
+
+.section[data-text-align='center'] > .container > .layout > .content > .actions {
+  justify-content: center;
+}
+
+.section[data-text-align='right'] > .container > .layout > .content > .actions {
+  justify-content: flex-end;
+}
+
+.section[data-spacing='none'] {
+  padding-block: 0;
+}
+
+.section[data-spacing='compact'] {
+  padding-block: 24px;
+}
+
+.section[data-spacing='spacious'] {
+  padding-block: clamp(64px, 8vw, 120px);
+}
+
+.section[data-width='readable'] > .container {
+  max-width: 760px;
+}
+
+.section[data-width='full'] > .container {
+  max-width: none;
+}
+
+.section[data-tone='paper'] {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.section[data-tone='yellow'] {
+  --section-surface: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
+.section[data-tone='ink'] {
+  --section-surface: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.section[data-divider='top'], .section[data-divider='both'] {
+  border-top: 3px solid currentColor;
+}
+
+.section[data-divider='bottom'], .section[data-divider='both'] {
+  border-bottom: 3px solid currentColor;
+}
+
+.section[data-min-height='screen'] {
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+}
+
+@media (max-width: 1000px) {
+  .section {
+    --section-gap: 32px;
+  }
+}
+
+@media (max-width: 720px) {
+  .section {
+    --section-gap: 44px;
+  }
+  .section[data-media-position] > .container > .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .content {
+    order: 0;
+  }
+  .media {
+    order: 1;
+  }
+  .secondary {
+    order: 2;
+    grid-column: 1;
+  }
+  .section[data-mobile-order='media-first'] > .container > .layout > .media {
+    order: -1;
+  }
+  .title {
+    font-size: 36px;
+  }
+}

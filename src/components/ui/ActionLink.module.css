@@ -1,0 +1,48 @@
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 48px;
+  padding: 12px 18px;
+  color: var(--color-ink);
+  font: bold 12px / 1.2 var(--font-label);
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.primary {
+  border: 2px solid var(--color-ink);
+  background: var(--color-accent);
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
+.plain {
+  color: inherit;
+  border-bottom: 2px solid currentColor;
+  padding-inline: 0;
+}
+
+.link span {
+  font: 24px / 1 var(--font-body);
+}
+
+.primary:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--color-ink);
+}
+
+.plain:hover {
+  background: var(--color-accent);
+  color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link {
+    transition: none;
+  }
+  .primary:hover {
+    transform: none;
+  }
+}

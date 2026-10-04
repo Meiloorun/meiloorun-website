@@ -1,0 +1,63 @@
+.panel {
+  border: 2px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  align-self: start;
+}
+
+.summary {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 22px 50px 22px 22px;
+  cursor: pointer;
+  list-style: none;
+  min-height: 156px;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.number {
+  font: bold 11px / 1 var(--font-label);
+}
+
+.title {
+  font: 32px / 1 var(--font-display);
+  text-transform: uppercase;
+}
+
+.subtitle {
+  font: 11px / 1.5 var(--font-label);
+  color: var(--color-muted);
+}
+
+.toggle {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(var(--color-ink), var(--color-ink)) center / 16px 2px no-repeat, linear-gradient(var(--color-ink), var(--color-ink)) center / 2px 16px no-repeat;
+}
+
+.summary:hover, .panel[open] .summary {
+  background: var(--color-accent);
+}
+
+.panel[open] .toggle {
+  background: linear-gradient(var(--color-ink), var(--color-ink)) center / 16px 2px no-repeat;
+}
+
+.description {
+  margin: 0;
+  padding: 20px 22px;
+  border-top: 2px solid var(--color-ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.extraContent {
+  padding: 0 22px 20px;
+}

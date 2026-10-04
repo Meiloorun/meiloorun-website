@@ -1,0 +1,150 @@
+.project {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: var(--border-heavy);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 6px 6px 0 var(--color-ink);
+}
+
+.visual {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-bottom: var(--border-heavy);
+  background: var(--color-accent);
+}
+
+.visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imageMark {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 6px 12px;
+  background: var(--color-ink);
+  color: var(--color-accent);
+  font: 28px / 1 var(--font-body);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+  padding: clamp(24px, 3vw, 42px);
+  flex: 1;
+  min-width: 0;
+}
+
+.metadata {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.reference {
+  font: bold 10px / 1.5 var(--font-label);
+  letter-spacing: 1px;
+}
+
+.title {
+  margin: 0;
+  font: 40px / 1.05 var(--font-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.description > :first-child {
+  margin-top: 0;
+}
+
+.description > :last-child {
+  margin-bottom: 0;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tags li {
+  padding: 6px 9px;
+  border: 1px solid var(--color-ink);
+  font: bold 10px / 1.3 var(--font-label);
+  text-transform: uppercase;
+}
+
+.extra {
+  width: 100%;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-top: auto;
+  padding-top: 8px;
+  width: 100%;
+}
+
+.project[data-featured][data-has-image='true'] {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+}
+
+.project[data-featured] > .visual {
+  aspect-ratio: auto;
+  min-height: 360px;
+  border-bottom: 0;
+  border-right: var(--border-heavy);
+}
+
+.project[data-featured] > .visual img {
+  position: absolute;
+  inset: 0;
+}
+
+.project[data-featured] > .content > .title {
+  font-size: clamp(38px, 4vw, 56px);
+}
+
+@media (max-width: 900px) {
+  .project[data-featured][data-has-image='true'] {
+    grid-template-columns: 1fr;
+  }
+  .project[data-featured] > .visual {
+    aspect-ratio: 16 / 10;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: var(--border-heavy);
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 32px;
+  }
+  .links {
+    gap: 16px;
+  }
+}

@@ -1,0 +1,31 @@
+.decoration {
+  position: absolute;
+  display: block;
+  left: calc(var(--decoration-left) + var(--decoration-offset-x));
+  top: calc(var(--decoration-top) + var(--decoration-offset-y));
+  width: var(--decoration-width);
+  max-width: none;
+  opacity: var(--decoration-opacity);
+  transform: translate(var(--decoration-anchor-x), var(--decoration-anchor-y))
+    rotate(var(--decoration-rotation)) scale(var(--decoration-flip-x), var(--decoration-flip-y));
+  transform-origin: center;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.decoration[data-position='fixed'] { position: fixed; }
+.decoration[data-layer='foreground'] { z-index: 2; }
+.decoration > img { width: 100%; height: auto; max-width: none; }
+
+@media (max-width: 720px) {
+  .decoration {
+    left: calc(var(--decoration-mobile-left) + var(--decoration-mobile-offset-x));
+    top: calc(var(--decoration-mobile-top) + var(--decoration-mobile-offset-y));
+    width: var(--decoration-mobile-width);
+    opacity: var(--decoration-mobile-opacity);
+    transform: translate(var(--decoration-mobile-anchor-x), var(--decoration-mobile-anchor-y))
+      rotate(var(--decoration-mobile-rotation)) scale(var(--decoration-mobile-flip-x), var(--decoration-mobile-flip-y));
+  }
+  .decoration[data-hide-on-mobile] { display: none; }
+}

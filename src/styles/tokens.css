@@ -1,0 +1,13 @@
+:root {
+  --color-paper: #f4f3ed;
+  --color-ink: #111110;
+  --color-muted: #585852;
+  --color-accent: #ffd600;
+  --color-surface: #deded6;
+  --page-width: 1440px;
+  --page-gutter: clamp(20px, 4vw, 64px);
+  --font-body: Arial, Helvetica, sans-serif;
+  --font-display: Impact, 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  --font-label: 'Courier New', monospace;
+  --border-heavy: 3px solid var(--color-ink);
+}
