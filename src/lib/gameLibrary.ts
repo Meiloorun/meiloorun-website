@@ -61,10 +61,16 @@ export function importGameLibrary(source: string, filename: string): GameLibrary
     snapshotDate: filename.match(/(\d{4}-\d{2}-\d{2})\.csv$/i)?.[1] };
 }
 
+let cachedLibrary: { filename: string; source: string; library: GameLibrary } | undefined;
+
 export async function loadGameLibrary(): Promise<GameLibrary> {
   const exports = import.meta.glob<string>('/src/data/games_export/*', { query: '?raw', import: 'default' });
   const filename = singleExport(Object.keys(exports));
-  return importGameLibrary(await exports[filename](), filename);
+  const source = await exports[filename]();
+  if (cachedLibrary?.filename === filename && cachedLibrary.source === source) return cachedLibrary.library;
+  const library = importGameLibrary(source, filename);
+  cachedLibrary = { filename, source, library };
+  return library;
 }
 
 export function singleExport(paths: string[]): string {

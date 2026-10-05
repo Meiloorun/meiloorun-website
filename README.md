@@ -314,10 +314,26 @@ If account access is revoked or the refresh token expires, rerun the connection 
 This is a static site: feeds are snapshots taken during `npm run build`.
 Rebuild/redeploy to update them. In development they update on page requests.
 For continuously refreshed feeds, add a server adapter or a scheduled rebuild.
-Simkl uses a shared five-minute feed cache in `.cache/media/`, alongside its
-activity-based library cache. Failed syncs retain the previous snapshot and
-back off before retrying. Other media loaders fetch their data on each build
-or development page request.
+Feeds are cached privately in `.cache/media/` across page loads, server restarts,
+and builds. Refresh intervals are set in `src/lib/mediaTrackers.ts`:
+
+| Feed | Minimum refresh interval |
+| --- | --- |
+| AniList manga and anime | 15 minutes per list |
+| Simkl TV and Movies (shared sync) | 5 minutes |
+| Last.fm recent tracks / now playing snapshot | 5 minutes |
+| Last.fm top artists over seven days | 1 hour |
+
+Cache expiry triggers a refresh on the next page request or build, rather than
+background polling. Failed refreshes keep the last successful snapshot and its
+original timestamp. Retries back off for at least five minutes; AniList and
+Last.fm HTTP `Retry-After` headers can extend that delay. Simultaneous requests
+share the same load, and failed first loads also back off. Missing credentials
+still avoid all requests. Comics has no API loader to cache.
+Persist `.cache/` privately in CI to reuse these caches between deployments.
+Deleting a feed cache file forces a new fetch on the next load. Caching reduces
+request frequency but cannot guarantee immunity from provider limits, especially
+when multiple machines build independently.
 AniList's recent panel is explicitly labelled **Recent list updates** because
 a list edit is not proof that a chapter or episode was consumed at that time.
 Its anime list can also contain films; the Movies page is intended to use
@@ -328,6 +344,17 @@ API references: [AniList media lists](https://docs.anilist.co/guide/graphql/quer
 and [Simkl API](https://api.simkl.org/).
 
 ## Main game and Twitch stream
+
+Games page loading uses a parsed CSV cache until the export filename or contents
+change. IGDB covers and canonical slugs are stored in `.cache/igdb/` for seven
+days, keyed by the collection's sorted game IDs. Changing statuses or scores in
+the CSV updates the library immediately without repeating unchanged artwork
+requests. A changed set of IDs triggers a new metadata lookup.
+Main-game details are cached for one day, keyed by `IGDB_GAME_ID`.
+The disk cache survives dev-server restarts and local builds; stale metadata is
+retained if a refresh fails. Concurrent requests share the same lookup.
+As with Simkl, CI must preserve the private cache between builds to reuse it.
+The deployed static page performs no CSV parsing or IGDB requests for visitors.
 
 ### Infinite Backlog CSV
 
@@ -387,6 +414,67 @@ meiloorun.gg, and www.meiloorun.gg. Add any different preview hostname to the in
 and the stream loads independently of the game's build-time data. Twitch requires
 a player of at least 400×300 pixels; narrower layouts show a direct Twitch button.
 See [Twitch embed documentation](https://dev.twitch.tv/docs/embed/video-and-clips/).
+
+## Deploying to a separate GitHub Pages repository
+
+`.github/workflows/deploy-pages.yml` builds the source repository on pushes to
+`master` or `main`, or when manually run from Actions. It publishes only `dist/`
+to the **main branch of the destination repository**, with `keep_files: true`.
+The root hosts this website while the existing `samitracker/` folder and
+`.nojekyll` remain in place. Matching generated paths are updated; files absent
+from the new build are preserved, including old generated assets. Keep this
+website's build output out of `samitracker/`. The SamiTracker pipeline must
+also preserve the root website when publishing its own updates.
+
+Keep `.env` local. In the **source** repository, open **Settings → Secrets and
+variables → Actions → Secrets**, and add individual repository secrets with
+the same names as your local settings:
+
+- `ANILIST_USERNAME`
+- `LASTFM_USERNAME`, `LASTFM_API_KEY`
+- `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, `SIMKL_PROFILE_URL`
+- `IGDB_GAME_ID`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`
+- `INFINITE_BACKLOG_PROFILE_URL`, `BATCAVE_PROFILE_URL`
+
+Optional secrets: `BATCAVE_EMBED_URL`, `SIMKL_ACCESS_TOKEN`, and
+`SIMKL_CLIENT_SECRET` (only for a confidential Simkl app). Missing tracker
+credentials show that tracker's existing fallback. Do not include the `KEY=`
+part or surrounding quotes when pasting a value into GitHub's secret editor.
+The workflow passes values directly to the build environment; it creates no
+`.env` file and never publishes credentials or `.cache/`.
+
+Create a **fine-grained personal access token** in your GitHub account's
+**Settings → Developer settings → Personal access tokens**. Select the owner
+of the destination repository as the resource owner, restrict repository access
+to that repository, and grant **Contents: Read and write**. Save it as the
+`PAGES_DEPLOY_TOKEN` secret in the source repository. Set an appropriate expiry
+and update the secret when renewed. The source repo's automatic `GITHUB_TOKEN`
+cannot publish to another repository.
+
+In the source repo's **Actions → Variables** tab, add:
+
+| Variable | Value |
+| --- | --- |
+| `PAGES_REPOSITORY` | Destination owner/repo, e.g. `meiloorun/meiloorun.github.io` |
+| `PAGES_SITE_URL` | `https://meiloorun.github.io` initially |
+| `PAGES_CUSTOM_DOMAIN` | Leave unset initially; use `meiloorun.gg` when its DNS and Pages domain are configured |
+
+This workflow supports a site served at the domain root. A project site under
+`/<repository>/` needs additional base-path changes because existing links and
+image paths are absolute. For a custom domain, also change `PAGES_SITE_URL` to
+`https://meiloorun.gg`; `PAGES_CUSTOM_DOMAIN` writes the deployment's CNAME file.
+
+Commit and push the workflow, Astro config, and website source. In the destination
+repository's **Settings → Pages**, keep
+**Deploy from a branch → main → /(root)**.
+Future pushes build and deploy automatically. **Actions → Build and publish
+Pages → Run workflow** can refresh the deployed tracker snapshot without a code
+change. Local cache files are not transferred: each CI runner starts fresh.
+Only npm's dependency download cache is enabled; no account-token cache is uploaded.
+
+Deployment setup does not require sharing any secrets in chat. Existing staged
+changes are preserved; the new workflow and config edits must also be included
+in the commit you deploy.
 
 ## Commands
 

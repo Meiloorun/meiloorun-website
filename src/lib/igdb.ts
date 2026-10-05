@@ -1,4 +1,5 @@
 import type { GameDetails, GameResult } from '../components/ui/GameShowcase';
+import { cachedGameMetadata } from './gameMetadataCache.mjs';
 
 interface IgdbGame {
   id: number; name: string; url: string; slug?: string; summary?: string; first_release_date?: number;
@@ -30,10 +31,11 @@ export interface LibraryGameArtwork { cover?: string; url: string; slug?: string
 
 /** Fetch canonical slugs for the entire collection in sequential, rate-limited batches. */
 export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<number, LibraryGameArtwork>> {
-  const ids = [...new Set(gameIds)].filter(id => Number.isSafeInteger(id) && id > 0);
+  const ids = [...new Set(gameIds)].filter(id => Number.isSafeInteger(id) && id > 0).sort((a, b) => a - b);
   if (!ids.length || !import.meta.env.IGDB_CLIENT_ID || !import.meta.env.IGDB_CLIENT_SECRET) return {};
   const artwork: Record<number, LibraryGameArtwork> = {};
   try {
+    return await cachedGameMetadata(`library-artwork-v1:${ids.join(',')}`, 7 * 86400000, async () => {
     const token = await appToken();
     for (let offset = 0; offset < ids.length; offset += 100) {
       if (offset > 0) await new Promise(resolve => setTimeout(resolve, 300));
@@ -47,6 +49,8 @@ export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<numb
         url: game.url, slug: game.slug, cover: game.cover?.image_id ? `https://images.igdb.com/igdb/image/upload/t_cover_big/${encodeURIComponent(game.cover.image_id)}.jpg` : undefined,
       }])));
     }
+      return artwork;
+    });
   } catch { console.warn('Some library metadata unavailable; keeping CSV details and completed batches.'); }
   return artwork;
 }
@@ -59,6 +63,7 @@ export async function loadMainGame(): Promise<GameResult> {
   // Validate before interpolating into IGDB's query language.
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return { state: 'not-found' };
   try {
+    return await cachedGameMetadata<GameResult>(`main-game-v1:${id}`, 86400000, async () => {
     const token = await appToken();
     const result = await request('https://api.igdb.com/v4/games', {
       method: 'POST', headers: { 'Client-ID': clientId, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain', Accept: 'application/json' },
@@ -77,6 +82,7 @@ export async function loadMainGame(): Promise<GameResult> {
       platforms: item.platforms?.map(platform => platform.name) ?? [],
     };
     return { state: 'ready', game };
+    });
   } catch {
     console.warn('Main game details unavailable; retaining the IGDB link.');
     return { state: 'unavailable' };

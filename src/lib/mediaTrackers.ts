@@ -2,8 +2,8 @@ import type { MediaEntry, TrackerFeed } from '../components/ui/TrackerPanel';
 import { syncSimkl } from './simkl.mjs';
 import { cachedMediaFeed } from './mediaFeedCache.mjs';
 
-// Simkl TV and Movies share a five-minute feed cache.
-const refreshIntervals = { simkl: 5 * 60000 };
+// Refresh intervals in milliseconds. Changing them here affects all media pages.
+const refreshIntervals = { anilist: 15 * 60000, simkl: 5 * 60000, lastFmTracks: 5 * 60000, lastFmArtists: 60 * 60000 };
 
 // TV and Movies share one sync and one token refresh per build.
 let simklFeed: ReturnType<typeof syncSimkl> | undefined;
@@ -28,7 +28,12 @@ const empty = (state: TrackerFeed['state']): TrackerFeed => ({ state, current: [
 
 async function request(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error('Tracker request failed');
+  if (!response.ok) {
+    const error = new Error('Tracker request failed') as Error & { retryDelay?: number };
+    const retryAfter = response.headers.get('Retry-After');
+    if (retryAfter) error.retryDelay = /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Math.max(0, Date.parse(retryAfter) - Date.now());
+    throw error;
+  }
   return response.json();
 }
 
@@ -41,6 +46,7 @@ export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed>
   const username = import.meta.env.ANILIST_USERNAME;
   if (!username) return empty('unconfigured');
   try {
+    return await cachedMediaFeed<TrackerFeed>(`anilist-v1:${username}:${type}`, refreshIntervals.anilist, async () => {
     const result = await request('https://graphql.anilist.co', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
@@ -67,6 +73,7 @@ export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed>
     });
     return { state: 'ready', current: result.data.current.mediaList.map(entry),
       recent: result.data.recent.mediaList.map(entry), updatedAt: new Date().toISOString() };
+    });
   } catch {
     // Don't log upstream URLs or responses: they may contain account details or API keys.
     console.warn(`AniList ${type} feed unavailable; keeping the profile link.`);
@@ -94,14 +101,20 @@ export async function loadLastFm(): Promise<TrackerFeed> {
     return endpoint.href;
   };
   // Independent results: a failed artist chart should not hide the listening log.
+  const cachedRequest = (method: string, field: 'recenttracks' | 'topartists', maxAge: number, period?: string) =>
+    cachedMediaFeed(`lastfm-v1:${username}:${apiKey}:${method}:${period ?? ''}`, maxAge, async () => {
+      const data = await request(url(method, period));
+      if (data.error || !Array.isArray(data[field]?.[field === 'recenttracks' ? 'track' : 'artist'])) throw new Error('Invalid Last.fm response');
+      return { data, updatedAt: new Date().toISOString() };
+    });
   const [tracksResult, artistsResult] = await Promise.allSettled([
-    request(url('user.getrecenttracks')),
-    request(url('user.gettopartists', '7day')),
+    cachedRequest('user.getrecenttracks', 'recenttracks', refreshIntervals.lastFmTracks),
+    cachedRequest('user.gettopartists', 'topartists', refreshIntervals.lastFmArtists, '7day'),
   ]);
   let topArtists: MediaEntry[] = [];
   let topArtistsState: TrackerFeed['state'] = 'unavailable';
   if (artistsResult.status === 'fulfilled') {
-    const result = artistsResult.value as { error?: number; topartists?: { artist: LastFmArtist[] } };
+    const result = artistsResult.value.data as { error?: number; topartists?: { artist: LastFmArtist[] } };
     if (!result.error && Array.isArray(result.topartists?.artist)) {
       topArtists = result.topartists.artist.slice(0, 6).map(artist => ({
         title: artist.name, href: artist.url,
@@ -113,7 +126,7 @@ export async function loadLastFm(): Promise<TrackerFeed> {
   if (topArtistsState === 'unavailable') console.warn('Last.fm top artists unavailable; keeping the profile link.');
   try {
     if (tracksResult.status === 'rejected') throw new Error('Listening log unavailable');
-    const result = tracksResult.value as { error?: number; recenttracks?: { track: LastFmTrack[] } };
+    const result = tracksResult.value.data as { error?: number; recenttracks?: { track: LastFmTrack[] } };
     if (result.error || !Array.isArray(result.recenttracks?.track)) throw new Error('Invalid tracker response');
     const entry = (track: LastFmTrack): MediaEntry => ({
       title: track.name, href: track.url, detail: track.artist['#text'],
@@ -125,7 +138,7 @@ export async function loadLastFm(): Promise<TrackerFeed> {
       current: result.recenttracks.track.filter(track => track['@attr']?.nowplaying === 'true').map(entry),
       recent: scrobbles.slice(0, 6).map(entry),
       topArtists, topArtistsState,
-      updatedAt: new Date().toISOString(),
+      updatedAt: tracksResult.value.updatedAt,
     };
   } catch {
     console.warn('Last.fm feed unavailable; keeping the profile link.');
