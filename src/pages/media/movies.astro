@@ -1,0 +1,11 @@
+---
+import MoviesPage from '../../components/media/MoviesPage';
+import PageLayout from '../../layouts/PageLayout.astro';
+import { loadSimkl } from '../../lib/mediaTrackers';
+const feed = await loadSimkl();
+---
+
+<PageLayout title="Movies | Meiloorun" description="Meiloorun's movies: favourites, trackers, and recent activity.">
+  <MoviesPage profileUrl={import.meta.env.SIMKL_PROFILE_URL || undefined} feed={feed.movies} />
+</PageLayout>
+

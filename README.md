@@ -246,6 +246,148 @@ they use empty alt text, are hidden from assistive technology, and never capture
 pointer events. Images are lazy-loaded by default; use `loading="eager"` for
 immediately visible artwork.
 
+## Media pages
+
+`/media` is the hub, with one section per category and Games first. Edit the
+sections directly in `src/components/media/MediaPage.tsx`. Individual page copy
+lives inline in `GamesPage.tsx`, `MangaPage.tsx`, `ComicsPage.tsx`,
+`TvShowsPage.tsx`, `MoviesPage.tsx`, and `MusicPage.tsx`. Routes live under
+`src/pages/media/`; `MediaLayout` shares the header and hero treatment.
+
+`TrackerPanel` accepts a `profileUrl`, optional `embedUrl`, and an optional
+`TrackerFeed` containing `current` and `recent` entries. It always includes
+an external tracker button. Without a personal URL, that button opens the
+tracker's homepage; it does not claim to link to your profile.
+
+Fill in the account settings in your local `.env`:
+
+- AniList: `ANILIST_USERNAME` enables public manga and anime lists.
+- Last.fm: `LASTFM_USERNAME` and `LASTFM_API_KEY` enable recent scrobbles
+  and the currently playing track at the time of the snapshot.
+- Simkl: `SIMKL_PROFILE_URL` sets the TV/movie profile button. Set
+  `SIMKL_CLIENT_ID`, then run `npm run connect:simkl` to authorise your account.
+  TV shows display currently watching and recently watched entries. Movies
+  display the watchlist and recently watched films, including anime movies.
+- Comics: `BATCAVE_PROFILE_URL` sets the profile button. Set `BATCAVE_EMBED_URL`
+  only after testing whether that actual profile permits embedding.
+- Games: `INFINITE_BACKLOG_PROFILE_URL` sets the backlog button. Backlog embedding
+  remains deferred; the main-game showcase, Twitch stream, and CSV library are implemented.
+
+TV and Movies use the API without embeds; profile buttons remain available
+if the API is unconfigured or unavailable.
+
+The AniList and Last.fm loaders live in `src/lib/mediaTrackers.ts` and run only
+in Astro frontmatter. Keys are not sent to the browser. Missing settings avoid
+network requests entirely; failed requests show a fallback without breaking
+the build. AniList and Last.fm requests have an eight-second timeout;
+Simkl requests have a fifteen-second timeout.
+
+### Connecting Simkl
+
+1. Register a new **AUTH V2** application in
+   [Simkl developer settings](https://simkl.com/settings/developer/).
+   Select **TV, devices & command line** for the local connection helper.
+   No redirect URL or client secret is needed for that app type. Use
+   `https://meiloorun.github.io` as the application homepage.
+2. Put the client ID in `SIMKL_CLIENT_ID` in `.env`, and set
+   `SIMKL_PROFILE_URL` to your profile URL.
+3. Run `npm run connect:simkl`. Open the printed Simkl PIN page, enter the
+   code, and approve read-only access. The helper saves `SIMKL_ACCESS_TOKEN`
+   and `SIMKL_REFRESH_TOKEN` to `.env` without printing them.
+4. Run `npm run build` to take the first snapshot.
+
+The loader refreshes expired access tokens automatically and caches the refreshed
+token and library privately under `.cache/simkl/` (ignored by Git).
+It checks activities before reading library changes, merges incremental updates,
+and reconciles removed entries. TV and Movies share one sync per production build.
+Recent entries are ordered by their actual last-watched timestamps.
+
+For deployment, provide `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, and
+`SIMKL_PROFILE_URL` through the build environment/secrets. The access token is
+optional when a refresh token is available. Persist `.cache/simkl/` between CI
+builds in a private cache to retain the sync checkpoint. Never publish that
+directory or `.env`. A confidential Server app also needs `SIMKL_CLIENT_SECRET`.
+Avoid concurrent builds sharing the same grant: refreshing invalidates its old
+access token. Use separate authorisations for independent build environments.
+If account access is revoked or the refresh token expires, rerun the connection helper.
+
+This is a static site: feeds are snapshots taken during `npm run build`.
+Rebuild/redeploy to update them. In development they update on page requests.
+For continuously refreshed feeds, add a server adapter or a scheduled rebuild.
+Simkl uses a shared five-minute feed cache in `.cache/media/`, alongside its
+activity-based library cache. Failed syncs retain the previous snapshot and
+back off before retrying. Other media loaders fetch their data on each build
+or development page request.
+AniList's recent panel is explicitly labelled **Recent list updates** because
+a list edit is not proof that a chapter or episode was consumed at that time.
+Its anime list can also contain films; the Movies page is intended to use
+Simkl for both live-action and anime movies.
+
+API references: [AniList media lists](https://docs.anilist.co/guide/graphql/queries/media-list),
+[Last.fm recent tracks](https://www.last.fm/api/show/user.getRecentTracks),
+and [Simkl API](https://api.simkl.org/).
+
+## Main game and Twitch stream
+
+### Infinite Backlog CSV
+
+Keep exactly one CSV in `src/data/games_export/`. To update the library, delete
+the old export, add the new one, and build/deploy. No filename or environment
+setting needs to change. A missing or duplicate CSV stops the build with a clear
+message instead of choosing a file arbitrarily. `src/lib/gameLibrary.ts` imports
+the CSV as build-only data; the raw export is not copied to the public site.
+
+The backlog shows all entries marked `Playing`, six recent `Beaten`/`Completed`
+entries ordered by their completion date, and an expandable full collection.
+Platform copies remain separate library entries. The snapshot date comes from
+the dated export filename; an undated filename gets a generic snapshot label.
+Only game ID, title, platform, status, completion, completion date, and overall
+rating are passed to the UI. Notes, purchases, and borrowing details are omitted.
+
+IGDB supplies canonical game slugs and covers for all unique library game IDs,
+using sequential batches of 100 with a pause between requests. The requests
+share the main game's app token. CSV details remain visible if requests fail;
+successfully fetched batches are retained. Metadata is refreshed at build time
+and has no persistent cache. Recent completions reflect recorded completion
+dates, not the last-edited timestamp. The main game uses `IGDB_GAME_ID`.
+
+Game links reuse the IGDB slug at `https://infinitebacklog.net/users/meiloorun/collection/<slug>`.
+`gameLibrary.ts` derives the username from the configured profile URL;
+there is no JSON mapping, handmade slug, or collection-entry ID. For example,
+Valheim opens `/users/meiloorun/collection/valheim` without a query string.
+The main game, playing cards, completion cards, and full collection use this
+pattern. Entries with no available IGDB slug fall back to the collection URL.
+Platform copies share the same game-level collection link.
+
+The Games page loads its current main game from IGDB at build time. Change
+`IGDB_GAME_ID` in `.env` and rebuild to switch games. Fill in the added settings:
+
+```env
+IGDB_GAME_ID=
+IGDB_CLIENT_ID=
+IGDB_CLIENT_SECRET=
+```
+
+Get the Client ID and Client Secret from a confidential app in the
+[Twitch Developer Console](https://dev.twitch.tv/console/apps). IGDB uses Twitch
+app authentication; these are not your Last.fm credentials. IGDB says its OAuth
+redirect URL is unused for this integration (use `http://localhost` for registration).
+See the [IGDB getting started guide](https://api-docs.igdb.com/#getting-started).
+The ID is IGDB's numeric game ID, not a slug, Steam ID, or Twitch category ID.
+`src/lib/igdb.ts` validates the ID, obtains an app token, and requests game details
+only in Astro frontmatter. No credentials are included in browser props or HTML.
+Missing credentials or failed requests leave a readable fallback and an IGDB link.
+Set the same private variables in your deployment build environment/GitHub Actions
+secrets; GitHub Pages serves only the generated static game details.
+
+`TwitchStream` is a reusable iframe component taking a channel and parent hostnames.
+The page embeds `meiloorun_` and includes localhost, 127.0.0.1, meiloorun.github.io,
+meiloorun.gg, and www.meiloorun.gg. Add any different preview hostname to the inline
+`parents` prop in `GamesPage.tsx`. Production embeds require HTTPS. Autoplay is off,
+and the stream loads independently of the game's build-time data. Twitch requires
+a player of at least 400×300 pixels; narrower layouts show a direct Twitch button.
+See [Twitch embed documentation](https://dev.twitch.tv/docs/embed/video-and-clips/).
+
 ## Commands
 
 - `npm install`: install dependencies.

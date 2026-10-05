@@ -1,0 +1,10 @@
+.introduction, .empty { max-width: 650px; color: var(--color-muted); line-height: 1.8; }
+.nowPlayingArtwork { position: relative; isolation: isolate; display: grid; justify-items: center; padding: 24px 24px 36px; margin-block: 16px; background: linear-gradient(-4deg, transparent 12%, var(--color-accent) 12% 26%, transparent 26%); }
+.artists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; list-style: none; padding: 0; margin: 28px 0 0; }
+.artists li { min-width: 0; padding: 24px; border: var(--border-heavy); background: var(--color-paper); box-shadow: 4px 4px 0 var(--color-accent); }
+.number { display: block; margin-bottom: 20px; font: bold 12px / 1 var(--font-label); }
+.artists a { color: var(--color-ink); font: 30px / 1.1 var(--font-display); overflow-wrap: anywhere; text-underline-offset: 5px; }
+.artists p { margin: 16px 0 12px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.artists time { color: var(--color-muted); font: 11px / 1.5 var(--font-label); }
+@media (max-width: 1000px) { .artists { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .artists { grid-template-columns: minmax(0, 1fr); } }

@@ -17,6 +17,7 @@ export default function HomePage() {
         { label: '02 / Explore', href: '#explore' },
         { label: '03 / About', href: '#about' },
         { label: '04 / Projects', href: '/projects' },
+        { label: '05 / Media', href: '/media' },
       ]}
       headerNote={<>A personal collection<br />of all my things.</>}
       footerNote="EVEN IF THE WHOLE WORLD FORGETS YOU, I WILL NEVER FORGET YOU"
@@ -200,7 +201,9 @@ export default function HomePage() {
             title="Media"
             subtitle=" What am I into? Where am I up to? Do I know ball?"
             description="Games, shows, music, films, etc."
-          />
+          >
+            <ActionLink href="/media">Explore the collection</ActionLink>
+          </InterestPanel>
           <InterestPanel
             number="03"
             title="Everyday life"

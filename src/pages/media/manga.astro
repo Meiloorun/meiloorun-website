@@ -1,0 +1,11 @@
+---
+import MangaPage from '../../components/media/MangaPage';
+import PageLayout from '../../layouts/PageLayout.astro';
+import { loadAniList, aniListProfile } from '../../lib/mediaTrackers';
+const feed = await loadAniList('MANGA');
+---
+
+<PageLayout title="Manga | Meiloorun" description="Meiloorun's manga: favourites, trackers, and recent activity.">
+  <MangaPage profileUrl={aniListProfile('mangalist')} feed={feed} />
+</PageLayout>
+

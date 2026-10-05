@@ -14,6 +14,7 @@ export default function ProjectsPage() {
         { label: '01 / Home', href: '/' },
         { label: '02 / Projects', href: '/projects', current: true },
         { label: '03 / About', href: '/#about' },
+        { label: '04 / Media', href: '/media' },
       ]}
       headerNote={<>Enter the lab.<br />Watch ahttt... </>}
       footerNote="MADE OUT OF CURIOSITY. ALWAYS IN PROGRESS."

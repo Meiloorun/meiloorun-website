@@ -1,0 +1,139 @@
+import type { MediaEntry, TrackerFeed } from '../components/ui/TrackerPanel';
+import { syncSimkl } from './simkl.mjs';
+import { cachedMediaFeed } from './mediaFeedCache.mjs';
+
+// Simkl TV and Movies share a five-minute feed cache.
+const refreshIntervals = { simkl: 5 * 60000 };
+
+// TV and Movies share one sync and one token refresh per build.
+let simklFeed: ReturnType<typeof syncSimkl> | undefined;
+export async function loadSimkl() {
+  const options = {
+    clientId: import.meta.env.SIMKL_CLIENT_ID,
+    accessToken: import.meta.env.SIMKL_ACCESS_TOKEN,
+    refreshToken: import.meta.env.SIMKL_REFRESH_TOKEN,
+    clientSecret: import.meta.env.SIMKL_CLIENT_SECRET,
+  };
+  if (!options.clientId || (!options.accessToken && !options.refreshToken)) return syncSimkl(options);
+  const load = () => cachedMediaFeed(`simkl-v1:${options.clientId}:${options.refreshToken || options.accessToken}`, refreshIntervals.simkl, async () => {
+    const feed = await syncSimkl(options);
+    if (feed.shows.state !== 'ready' || feed.movies.state !== 'ready') throw new Error('Simkl refresh failed');
+    return feed;
+  }).catch(() => ({ shows: empty('unavailable'), movies: empty('unavailable') }));
+  return import.meta.env.DEV ? load() : simklFeed ??= load();
+}
+
+// Imported only by Astro route frontmatter. API keys never enter a React island.
+const empty = (state: TrackerFeed['state']): TrackerFeed => ({ state, current: [], recent: [] });
+
+async function request(url: string, init?: RequestInit) {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error('Tracker request failed');
+  return response.json();
+}
+
+interface AniListEntry {
+  progress: number; status: string; updatedAt: number;
+  media: { title: { userPreferred: string }; siteUrl: string; coverImage: { medium: string }; format: string };
+}
+
+export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed> {
+  const username = import.meta.env.ANILIST_USERNAME;
+  if (!username) return empty('unconfigured');
+  try {
+    const result = await request('https://graphql.anilist.co', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        query: `query ($name: String!, $type: MediaType!) {
+          current: Page(perPage: 6) {
+            mediaList(userName: $name, type: $type, status_in: [CURRENT, REPEATING], sort: UPDATED_TIME_DESC) {
+              progress status updatedAt media { title { userPreferred } siteUrl coverImage { medium } format }
+            }
+          }
+          recent: Page(perPage: 6) {
+            mediaList(userName: $name, type: $type, status_in: [CURRENT, COMPLETED, REPEATING, PAUSED, DROPPED], sort: UPDATED_TIME_DESC) {
+              progress status updatedAt media { title { userPreferred } siteUrl coverImage { medium } format }
+            }
+          }
+        }`,
+        variables: { name: username, type },
+      }),
+    }) as { errors?: unknown[]; data?: { current: { mediaList: AniListEntry[] }; recent: { mediaList: AniListEntry[] } } };
+    if (result.errors?.length || !result.data) throw new Error('Invalid tracker response');
+    const entry = (item: AniListEntry): MediaEntry => ({
+      title: item.media.title.userPreferred, href: item.media.siteUrl, image: item.media.coverImage.medium,
+      detail: `${item.status.toLowerCase().replaceAll('_', ' ')} / ${type === 'MANGA' ? 'chapter' : 'episode'} ${item.progress}`,
+      date: new Date(item.updatedAt * 1000).toISOString(),
+    });
+    return { state: 'ready', current: result.data.current.mediaList.map(entry),
+      recent: result.data.recent.mediaList.map(entry), updatedAt: new Date().toISOString() };
+  } catch {
+    // Don't log upstream URLs or responses: they may contain account details or API keys.
+    console.warn(`AniList ${type} feed unavailable; keeping the profile link.`);
+    return empty('unavailable');
+  }
+}
+
+interface LastFmTrack {
+  name: string; url: string; artist: { '#text': string };
+  image?: { size: string; '#text': string }[];
+  '@attr'?: { nowplaying?: string }; date?: { uts: string };
+}
+
+interface LastFmArtist {
+  name: string; url: string; playcount: string;
+}
+
+export async function loadLastFm(): Promise<TrackerFeed> {
+  const username = import.meta.env.LASTFM_USERNAME;
+  const apiKey = import.meta.env.LASTFM_API_KEY;
+  if (!username || !apiKey) return empty('unconfigured');
+  const url = (method: string, period?: string) => {
+    const endpoint = new URL('https://ws.audioscrobbler.com/2.0/');
+    endpoint.search = new URLSearchParams({ method, user: username, api_key: apiKey, format: 'json', limit: '6', ...(period ? { period } : {}) }).toString();
+    return endpoint.href;
+  };
+  // Independent results: a failed artist chart should not hide the listening log.
+  const [tracksResult, artistsResult] = await Promise.allSettled([
+    request(url('user.getrecenttracks')),
+    request(url('user.gettopartists', '7day')),
+  ]);
+  let topArtists: MediaEntry[] = [];
+  let topArtistsState: TrackerFeed['state'] = 'unavailable';
+  if (artistsResult.status === 'fulfilled') {
+    const result = artistsResult.value as { error?: number; topartists?: { artist: LastFmArtist[] } };
+    if (!result.error && Array.isArray(result.topartists?.artist)) {
+      topArtists = result.topartists.artist.slice(0, 6).map(artist => ({
+        title: artist.name, href: artist.url,
+        detail: `${Number(artist.playcount).toLocaleString('en-GB')} ${Number(artist.playcount) === 1 ? 'play' : 'plays'} in the last 7 days`,
+      }));
+      topArtistsState = 'ready';
+    }
+  }
+  if (topArtistsState === 'unavailable') console.warn('Last.fm top artists unavailable; keeping the profile link.');
+  try {
+    if (tracksResult.status === 'rejected') throw new Error('Listening log unavailable');
+    const result = tracksResult.value as { error?: number; recenttracks?: { track: LastFmTrack[] } };
+    if (result.error || !Array.isArray(result.recenttracks?.track)) throw new Error('Invalid tracker response');
+    const entry = (track: LastFmTrack): MediaEntry => ({
+      title: track.name, href: track.url, detail: track.artist['#text'],
+      image: track.image?.find(image => image.size === 'large')?.['#text'] || undefined,
+      date: track.date ? new Date(Number(track.date.uts) * 1000).toISOString() : undefined,
+    });
+    const scrobbles = result.recenttracks.track.filter(track => track['@attr']?.nowplaying !== 'true');
+    return { state: 'ready',
+      current: result.recenttracks.track.filter(track => track['@attr']?.nowplaying === 'true').map(entry),
+      recent: scrobbles.slice(0, 6).map(entry),
+      topArtists, topArtistsState,
+      updatedAt: new Date().toISOString(),
+    };
+  } catch {
+    console.warn('Last.fm feed unavailable; keeping the profile link.');
+    return { ...empty('unavailable'), topArtists, topArtistsState, updatedAt: new Date().toISOString() };
+  }
+}
+
+export function aniListProfile(list: 'mangalist' | 'animelist') {
+  const username = import.meta.env.ANILIST_USERNAME;
+  return username ? `https://anilist.co/user/${encodeURIComponent(username)}/${list}` : 'https://anilist.co/';
+}

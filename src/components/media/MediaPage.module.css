@@ -1,0 +1,25 @@
+.hero { padding-block: 60px 42px; border-bottom: 5px solid var(--color-ink); }
+.hero .heroTitle { max-width: 1050px; margin: 0; font: 900 clamp(64px, 9vw, 128px) / .95 var(--font-display); text-transform: uppercase; letter-spacing: -2px; }
+.highlight { display: inline-block; background: var(--color-accent); padding: 0 12px 8px 4px; transform: rotate(-1deg); }
+.lead { max-width: 620px; margin: 28px 0; line-height: 1.8; }
+.category { border-bottom: 2px solid var(--color-ink); padding-block: 36px; }
+.category .categoryTitle { margin: 0; font: clamp(38px, 5vw, 72px) / 1 var(--font-display); text-transform: uppercase; }
+.category p { max-width: 620px; line-height: 1.8; }
+.category .categoryContent { padding-right: 180px; }
+.category[data-tone='ink'] .categoryContent { padding-inline: 28px; padding-right: 200px; }
+.number { font: bold 12px / 1.5 var(--font-label); letter-spacing: 2px; }
+.jumpLinks { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-top: 30px; font: bold 11px / 1.4 var(--font-label); text-transform: uppercase; }
+.jumpLinks a { color: inherit; text-underline-offset: 5px; }
+.placeholder { padding: 32px; border: 3px dashed var(--color-ink); max-width: 760px; }
+.placeholder p { line-height: 1.8; }
+@media (min-width: 721px) and (max-width: 1100px) {
+  .heroPortrait { opacity: .16; }
+}
+@media (max-width: 720px) {
+  .hero { padding-block: 36px 28px; }
+  .hero .heroTitle { font-size: clamp(48px, 13vw, 80px); letter-spacing: -1px; }
+  .category .categoryContent { padding-right: 0; }
+  .category[data-tone='ink'] .categoryContent { padding-inline: 20px; }
+  .placeholder { padding: 20px; }
+}
+

@@ -1,0 +1,17 @@
+---
+import GamesPage from '../../components/media/GamesPage';
+import PageLayout from '../../layouts/PageLayout.astro';
+import { loadMainGame, loadLibraryArtwork } from '../../lib/igdb';
+import { loadGameLibrary } from '../../lib/gameLibrary';
+const library = await loadGameLibrary();
+const [mainGame, artwork] = await Promise.all([
+  loadMainGame(),
+  loadLibraryArtwork(library.entries.flatMap(game => game.igdbId ? [game.igdbId] : [])),
+]);
+
+---
+
+<PageLayout title="Games | Meiloorun" description="Meiloorun's games: favourites, trackers, and recent activity.">
+  <GamesPage profileUrl={import.meta.env.INFINITE_BACKLOG_PROFILE_URL || undefined} mainGame={mainGame} library={library} artwork={artwork} />
+</PageLayout>
+

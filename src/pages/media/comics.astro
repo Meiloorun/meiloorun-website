@@ -1,0 +1,10 @@
+---
+import ComicsPage from '../../components/media/ComicsPage';
+import PageLayout from '../../layouts/PageLayout.astro';
+
+---
+
+<PageLayout title="Comics | Meiloorun" description="Meiloorun's comics: favourites, trackers, and recent activity.">
+  <ComicsPage profileUrl={import.meta.env.BATCAVE_PROFILE_URL || undefined} embedUrl={import.meta.env.BATCAVE_EMBED_URL || undefined} />
+</PageLayout>
+

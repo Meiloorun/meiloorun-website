@@ -1,0 +1,8 @@
+.stream { container-type: inline-size; }
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.header > span { font: bold 12px / 1.5 var(--font-label); }
+.frame { border: var(--border-heavy); background: var(--color-ink); box-shadow: 6px 6px 0 var(--color-accent); }
+.frame iframe { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; min-height: 300px; border: 0; }
+.smallScreen { display: none; padding: 24px; color: var(--color-paper); line-height: 1.7; }
+/* Twitch requires a player at least 400px wide. Keep the direct link on narrow screens. */
+@container (max-width: 405px) { .frame iframe { display: none; } .smallScreen { display: block; } }
