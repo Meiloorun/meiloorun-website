@@ -2,7 +2,6 @@ import { SiteShell } from '../layout/SiteShell';
 import { Section } from '../ui/Section';
 import { Project } from '../ui/Project';
 import { InkLabel } from '../ui/InkLabel';
-import { ActionLink } from '../ui/ActionLink';
 import { DecorativeImage } from '../ui/DecorativeImage';
 import styles from './ProjectsPage.module.css';
 
@@ -16,12 +15,17 @@ export default function ProjectsPage() {
         { label: '02 / Projects', href: '/projects', current: true },
         { label: '03 / About', href: '/#about' },
       ]}
-      headerNote={<>Enter the lab.<br />Curiosity at work.</>}
+      headerNote={<>Enter the lab.<br />Watch ahttt... </>}
       footerNote="MADE OUT OF CURIOSITY. ALWAYS IN PROGRESS."
       decorations={
         <>
-          <DecorativeImage src="/images/deco-12.svg" placement="top-left" width="340px" offsetX="-280px" offsetY="170px" rotation={-15} opacity={0.6} hideOnMobile />
-          <DecorativeImage src="/images/deco-7.svg" placement="bottom-right" width="110px" offsetX="30px" offsetY="35px" rotation={15} mobile={{ width: '65px', offsetX: '20px', offsetY: '20px' }} />
+          <DecorativeImage src="/images/deco-12.svg" intrinsicWidth={226} intrinsicHeight={207} loading="eager" placement="top-left" width="340px" offsetX="-280px" offsetY="170px" rotation={-15} opacity={0.6} hideOnMobile />
+          <DecorativeImage src="/images/deco-7.svg" intrinsicWidth={436} intrinsicHeight={452} placement="bottom-right" width="110px" offsetX="30px" offsetY="35px" rotation={15} mobile={{ width: '65px', offsetX: '20px', offsetY: '20px' }} />
+          {/* Page edges: positioned relative to the full page as the list grows. */}
+          <DecorativeImage src="/images/deco-4.svg" intrinsicWidth={226} intrinsicHeight={217} placement="top-right" width="clamp(140px, 18vw, 240px)" offsetX="120px" offsetY="32%" rotation={-18} opacity={0.55} hideOnMobile />
+          <DecorativeImage src="/images/deco-5.svg" intrinsicWidth={226} intrinsicHeight={226} placement="center-left" width="190px" offsetX="-120px" offsetY="8%" rotation={22} opacity={0.65} hideOnMobile />
+          <DecorativeImage src="/images/deco-14.svg" intrinsicWidth={226} intrinsicHeight={148} placement="top-right" width="150px" offsetX="75px" offsetY="78%" rotation={-14} opacity={0.65} hideOnMobile />
+          <DecorativeImage src="/images/deco-3.svg" intrinsicWidth={226} intrinsicHeight={226} placement="bottom-left" width="240px" offsetX="-130px" offsetY="-30px" rotation={-25} opacity={0.4} mobile={{ width: '100px', offsetX: '-60px', offsetY: '-25px', opacity: 0.2 }} />
         </>
       }
     >
@@ -32,20 +36,21 @@ export default function ProjectsPage() {
         contentClassName={styles.heroContent}
         titleClassName={styles.heroTitle}
         eyebrow={<InkLabel>Projects / The collection</InkLabel>}
-        title={<>THINGS<br /><span className={styles.highlight}>I’VE MADE.</span></>}
+        title={<>MY<br /><span className={styles.highlight}>PROJECTS.</span></>}
         decorations={
           <>
-            <DecorativeImage src="/images/deco-asura.svg" placement="bottom-right" width="clamp(190px, 30%, 350px)" offsetX="30px" offsetY="25px" rotation={-5} opacity={0.85} hideOnMobile />
-            <DecorativeImage src="/images/deco-11.svg" placement="top-right" width="85px" offsetX="-15px" offsetY="10px" rotation={12} opacity={0.75} mobile={{ width: '55px', offsetX: '-5px', opacity: 0.25 }} />
+            <DecorativeImage src="/images/deco-asura2.svg" intrinsicWidth={500} intrinsicHeight={500} loading="eager" placement="bottom-right" width="clamp(250px, 80%, 500px)" offsetX="-130px" offsetY="-50px" rotation={-5} opacity={0.85} hideOnMobile />
+            <DecorativeImage src="/images/deco-11.svg" intrinsicWidth={225} intrinsicHeight={242} loading="eager" placement="top-right" width="85px" offsetX="-15px" offsetY="10px" rotation={12} opacity={0.75} mobile={{ width: '55px', offsetX: '-5px', opacity: 0.25 }} />
+            <DecorativeImage src="/images/deco-7.svg" intrinsicWidth={436} intrinsicHeight={452} loading="eager" placement="bottom-right" width="100px" offsetX="-22px" offsetY="-24px" rotation={18} mobile={{ width: '42px', offsetX: '-8px', offsetY: '-12px', opacity: 0.65 }} />
           </>
         }
       >
-        <p className={styles.introduction}>Experiments, works in progress, and things built because I wanted to see what would happen. Welcome to the lab.</p>
-        <div className={styles.heroNotes}><span>BUILD / BREAK / FIGURE IT OUT</span><a href="#collection">Explore the collection <span aria-hidden="true">↓</span></a></div>
+        <p className={styles.introduction}>This is my list of projects, that I want to display, its got ones I've done, in progress and future ones too.</p>
+        <div className={styles.heroNotes}><span>CREATE / DESTROY</span><a href="#collection">look at da list <span aria-hidden="true">↓</span></a></div>
       </Section>
 
       <Section id="collection" spacing="none" className={styles.collection} aria-labelledby="collection-title">
-        <div className={styles.sectionHeader}><h2 id="collection-title">ON THE WORKBENCH.</h2><span>01 / First entry. More to come.</span></div>
+        <div className={styles.sectionHeader}><h2 id="collection-title">ON THE WORKBENCH.</h2><span>INFINITY / Constantly increasing entries.</span></div>
         <div className={styles.listing}>
           <Project
             title="Meiloorun — Personal site"
@@ -53,39 +58,64 @@ export default function ProjectsPage() {
             status="In progress"
             featured
             image={{ src: '/images/intro.svg', alt: 'Meiloorun artwork from the homepage.', width: 600, height: 700 }}
-            description="My own corner of the internet. A home for projects, media, and everyday discoveries, with an ink-and-yellow interface built from reusable components."
+            description="My personal website (which you are currently on). This is my home on the internet."
             tags={['Astro', 'React', 'TypeScript', 'CSS Modules']}
             links={[
               { label: 'Open the site', href: '/' },
-              { label: 'Build notes', href: '#build-notes' },
+              { label: 'Source', href: 'https://github.com/meiloorun/meiloorun-website' },
             ]}
           >
             <p className={styles.projectNote}>A living project. The design and the collection keep growing together.</p>
           </Project>
-          <aside className={styles.next} aria-labelledby="next-title">
-            <span className={styles.nextNumber} aria-hidden="true">02 /</span>
-            <InkLabel tone="yellow">Room for the next idea</InkLabel>
-            <h3 id="next-title">WHAT’S<br />NEXT?</h3>
-            <p>The next experiment hasn’t landed here yet. There’s always something else to make.</p>
-            <span className={styles.nextSymbol} aria-hidden="true">✳</span>
-          </aside>
+          <Project
+            title="Sami Tracker"
+            number="02"
+            status="Completed - currently down"
+            image={{ src: '/images/sami-tracker.jpg', alt: 'Sami.', width: 600, height: 700 }}
+            description="An App + Website that allows for the logging and history of the feeding of my cat Sami"
+            tags={['Android', 'Web', 'React Native', 'TypeScript', 'PostgreSQL']}
+            links={[
+              { label: 'Open the site', href: 'https://meiloorun.github.io/samitracker' },
+              { label: 'Source', href: 'https://github.com/Meiloorun/sami-tracker' },
+            ]}
+          >
+            <p className={styles.projectNote}>I luv my cat.</p>
+          </Project>
+          <Project
+            title="Lightsaber Duelists"
+            number="03"
+            status="Research phase"
+            description="A s&box game that lets you duel with lightsabers with others with deep mechanics."
+            tags={['s&box', 'C#', 'Source 2 Engine', 'Game Development']}
+          >
+            <p className={styles.projectNote}>I'm still learning s&box engine for this one</p>
+          </Project>
+          <Project
+            title="UNTITLED GAME"
+            number="04"
+            status="Research / Planning phase"
+            description="A Fighting x Character Action game that is still in the planning phase. I have a lot of ideas for this one."
+            tags={['Story Heavy', 'Character Action Game', 'Fighting Game', 'Game Development']}
+            links={[
+              { label: 'The Wiki', href: 'https://app.clickup.com/90152426489/docs/2kyr1pzt-195/2kyr1pzt-215' }
+            ]}
+          >
+            <p className={styles.projectNote}>This is my magnum opus, I dont even have the funds for this.</p>
+          </Project>
+          <Project
+            title="Tajneed Spreadsheet Updater"
+            number="05"
+            status="Completed"
+            description="This is a tool I used for updating our local MKA Farnborough Tajneed Spreadsheet with data directly from CARS."
+            tags={['Python', 'Batchfile', 'Google Cloud', 'Pandas', 'Google Sheets API']}
+            links={[
+              { label: 'Releases', href: 'https://github.com/Meiloorun/Tajneed-Spreadsheet-Updater/releases/' },
+              { label: 'Source', href: 'https://github.com/Meiloorun/Tajneed-Spreadsheet-Updater' }
+            ]}
+          >
+            <p className={styles.projectNote}>Current Version - 2.0</p>
+          </Project>
         </div>
-      </Section>
-
-      <Section
-        id="build-notes"
-        className={styles.notes}
-        title="BEHIND THE BUILD."
-        titleClassName={styles.notesTitle}
-        eyebrow={<InkLabel>Field notes / 001</InkLabel>}
-        decorations={<DecorativeImage src="/images/deco-8.svg" placement="bottom-right" width="180px" offsetX="80px" offsetY="40px" rotation={15} opacity={0.12} mobile={{ width: '100px', opacity: 0.08 }} />}
-      >
-        <div className={styles.noteGrid}>
-          <div><h3>Astro + React</h3><p>Astro handles the pages. React components supply the interface, with JavaScript added when an interaction needs it.</p></div>
-          <div><h3>Pieces that fit together</h3><p>Sections, artwork frames, project entries, and decorations can be composed without rebuilding each page from scratch.</p></div>
-          <div><h3>A work in progress</h3><p>The site is the first experiment in this collection. New projects will get their own entry as they take shape.</p></div>
-        </div>
-        <ActionLink variant="plain" href="/">Back to my corner</ActionLink>
       </Section>
     </SiteShell>
   );

@@ -11,13 +11,16 @@
 .visual {
   position: relative;
   min-width: 0;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: auto;
+  min-height: 220px;
   overflow: hidden;
-  border-bottom: var(--border-heavy);
+  border-right: var(--border-heavy);
   background: var(--color-accent);
 }
 
 .visual img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -37,8 +40,8 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 22px;
-  padding: clamp(24px, 3vw, 42px);
+  gap: 16px;
+  padding: 24px;
   flex: 1;
   min-width: 0;
 }
@@ -59,7 +62,7 @@
 
 .title {
   margin: 0;
-  font: 40px / 1.05 var(--font-display);
+  font: 32px / 1.05 var(--font-display);
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
@@ -107,42 +110,52 @@
   width: 100%;
 }
 
-.project[data-featured][data-has-image='true'] {
+.project:not([data-featured])[data-has-image='true'] {
   display: grid;
-  grid-template-columns: .8fr 1.2fr;
+  grid-template-columns: minmax(180px, .35fr) 1fr;
 }
 
 .project[data-featured] > .visual {
-  aspect-ratio: auto;
-  min-height: 360px;
-  border-bottom: 0;
-  border-right: var(--border-heavy);
+  aspect-ratio: 21 / 9;
+  min-height: 280px;
+  border-right: 0;
+  border-bottom: var(--border-heavy);
 }
 
-.project[data-featured] > .visual img {
-  position: absolute;
-  inset: 0;
+.project[data-featured] > .content {
+  gap: 22px;
+  padding: clamp(28px, 3vw, 42px);
 }
 
 .project[data-featured] > .content > .title {
   font-size: clamp(38px, 4vw, 56px);
 }
 
-@media (max-width: 900px) {
-  .project[data-featured][data-has-image='true'] {
+@media (max-width: 720px) {
+  .project:not([data-featured])[data-has-image='true'] {
     grid-template-columns: 1fr;
   }
-  .project[data-featured] > .visual {
-    aspect-ratio: 16 / 10;
+  .visual {
+    aspect-ratio: 16 / 9;
     min-height: 0;
     border-right: 0;
     border-bottom: var(--border-heavy);
+  }
+  .project[data-featured] > .visual {
+    aspect-ratio: 16 / 9;
+    min-height: 240px;
   }
 }
 
 @media (max-width: 480px) {
   .title {
-    font-size: 32px;
+    font-size: 28px;
+  }
+  .project[data-featured] > .content > .title {
+    font-size: 36px;
+  }
+  .project[data-featured] > .content {
+    padding: 24px;
   }
   .links {
     gap: 16px;

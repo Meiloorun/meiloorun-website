@@ -30,6 +30,7 @@ export interface DecorativeImageProps extends DecorationAppearance {
   hideOnMobile?: boolean;
   intrinsicWidth?: number;
   intrinsicHeight?: number;
+  /** Defaults to eager without dimensions so clipped, edge-anchored images can load. */
   loading?: ComponentPropsWithoutRef<'img'>['loading'];
   className?: string;
   style?: CSSProperties;
@@ -77,7 +78,7 @@ function appearanceStyle(appearance: DecorationAppearance, mobile = false): Deco
 /** Purely decorative: hidden from assistive technology and never intercepts clicks. */
 export function DecorativeImage({
   src, mobileSrc, position = 'absolute', layer = 'background', mobile, hideOnMobile = false,
-  intrinsicWidth, intrinsicHeight, loading = 'lazy', className = '', style, ...appearance
+  intrinsicWidth, intrinsicHeight, loading, className = '', style, ...appearance
 }: DecorativeImageProps) {
   // A mobile size should replace a desktop custom width when no mobile width is supplied.
   const mobileAppearance = { ...appearance, ...mobile };
@@ -93,7 +94,7 @@ export function DecorativeImage({
       style={{ ...appearanceStyle(appearance), ...appearanceStyle(mobileAppearance, true), ...style }}
     >
       {mobileSrc && <source media="(max-width: 720px)" srcSet={mobileSrc} />}
-      <img src={src} alt="" width={intrinsicWidth} height={intrinsicHeight} loading={loading} decoding="async" draggable={false} />
+      <img src={src} alt="" width={intrinsicWidth} height={intrinsicHeight} loading={loading ?? (intrinsicWidth && intrinsicHeight ? 'lazy' : 'eager')} decoding="async" draggable={false} />
     </picture>
   );
 }

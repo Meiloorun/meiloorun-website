@@ -167,7 +167,9 @@ Only `title` is required. `image` accepts `src`, `alt`, optional dimensions, and
 space. `links` accepts multiple `{ label, href, newTab? }` objects; the first link
 is highlighted. New-tab links get accessible context and `noopener noreferrer`.
 Optional `number`, `year`, and `status` provide metadata; `tags` list technologies
-or categories. `featured` uses a wider side-by-side layout at desktop sizes.
+or categories. `featured` uses a large image-above-content layout with larger
+headings and spacing. Regular entries use a compact image-beside-content layout
+on desktop; both stack on mobile.
 `children` adds custom content before the links, and native article attributes
 and `className` pass through. `headingLevel` defaults to 3 and can be 2, 3, or 4.
 
