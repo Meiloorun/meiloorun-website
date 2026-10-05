@@ -1,0 +1,93 @@
+name: Build and publish Pages
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Simkl refreshes invalidate the old access token. Keep deployments sequential.
+concurrency:
+  group: publish-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check deployment settings
+        env:
+          TARGET_REPOSITORY: ${{ vars.PAGES_REPOSITORY }}
+          SITE_URL: ${{ vars.PAGES_SITE_URL }}
+          DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+        run: |
+          if [[ ! "$TARGET_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo 'Set the PAGES_REPOSITORY Actions variable to owner/repository.'
+            exit 1
+          fi
+          if [[ "$TARGET_REPOSITORY" == "$GITHUB_REPOSITORY" ]]; then
+            echo 'PAGES_REPOSITORY must be the separate repository hosting the site.'
+            exit 1
+          fi
+          if [[ ! "$SITE_URL" =~ ^https://[^/]+/?$ ]]; then
+            echo 'Set PAGES_SITE_URL to the root HTTPS site URL, such as https://meiloorun.github.io.'
+            exit 1
+          fi
+          if [[ -z "$DEPLOY_TOKEN" ]]; then
+            echo 'Add the PAGES_DEPLOY_TOKEN repository secret.'
+            exit 1
+          fi
+
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types
+        run: npm run check
+
+      - name: Check Simkl integration
+        run: node --test scripts/simkl.test.mjs scripts/mediaFeedCache.test.mjs
+
+      # Credentials are available only to the build, never published as an .env file.
+      - name: Build website
+        run: npm run build
+        env:
+          PAGES_SITE_URL: ${{ vars.PAGES_SITE_URL }}
+          ANILIST_USERNAME: ${{ secrets.ANILIST_USERNAME }}
+          LASTFM_USERNAME: ${{ secrets.LASTFM_USERNAME }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
+          SIMKL_CLIENT_SECRET: ${{ secrets.SIMKL_CLIENT_SECRET }}
+          SIMKL_ACCESS_TOKEN: ${{ secrets.SIMKL_ACCESS_TOKEN }}
+          SIMKL_REFRESH_TOKEN: ${{ secrets.SIMKL_REFRESH_TOKEN }}
+          SIMKL_PROFILE_URL: ${{ secrets.SIMKL_PROFILE_URL }}
+          IGDB_GAME_ID: ${{ secrets.IGDB_GAME_ID }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          INFINITE_BACKLOG_PROFILE_URL: ${{ secrets.INFINITE_BACKLOG_PROFILE_URL }}
+          BATCAVE_PROFILE_URL: ${{ secrets.BATCAVE_PROFILE_URL }}
+          BATCAVE_EMBED_URL: ${{ secrets.BATCAVE_EMBED_URL }}
+
+      - name: Publish generated files to the Pages repository
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: ${{ vars.PAGES_REPOSITORY }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          cname: ${{ vars.PAGES_CUSTOM_DOMAIN }}
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
