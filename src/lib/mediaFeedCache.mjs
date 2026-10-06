@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readCache, writeCache } from './cacheStorage.mjs';
 
 const pending = new Map();
 
@@ -11,8 +11,8 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
   const task = (async () => {
     let cached;
     try {
-      cached = JSON.parse(await readFile(path, 'utf8'));
-      if (cached.version !== 1) cached = undefined;
+      cached = await readCache(path);
+      if (cached?.version !== 1) cached = undefined;
     } catch { /* A missing or invalid cache can be rebuilt. */ }
     const hasValue = cached && 'value' in cached;
     if (hasValue && Date.now() - cached.savedAt < maxAge) return cached.value;
@@ -20,11 +20,7 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
       if (hasValue) return cached.value;
       throw new Error('Tracker refresh is backing off');
     }
-    const save = async value => {
-      await mkdir(cacheDir, { recursive: true });
-      await writeFile(`${path}.tmp`, JSON.stringify(value), { mode: 0o600 });
-      await rename(`${path}.tmp`, path);
-    };
+    const save = value => writeCache(path, value);
     try {
       const value = await load();
       await save({ version: 1, savedAt: Date.now(), value });

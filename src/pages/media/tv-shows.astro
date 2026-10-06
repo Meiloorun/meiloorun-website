@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+import { setting } from '../../lib/trackerRuntime.mjs';
 import TvShowsPage from '../../components/media/TvShowsPage';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { loadAniList, aniListProfile, loadSimkl } from '../../lib/mediaTrackers';
@@ -6,6 +8,6 @@ const [feed, simkl] = await Promise.all([loadAniList('ANIME'), loadSimkl()]);
 ---
 
 <PageLayout title="TV Shows + Anime | Meiloorun" description="Meiloorun's tv shows: favourites, trackers, and recent activity.">
-  <TvShowsPage simklUrl={import.meta.env.SIMKL_PROFILE_URL || undefined} simklFeed={simkl.shows} animeUrl={aniListProfile('animelist')} animeFeed={feed} />
+  <TvShowsPage simklUrl={setting('SIMKL_PROFILE_URL')} simklFeed={simkl.shows} animeUrl={aniListProfile('animelist')} animeFeed={feed} />
 </PageLayout>
 

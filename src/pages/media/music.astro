@@ -1,11 +1,14 @@
 ---
+export const prerender = false;
+import { setting } from '../../lib/trackerRuntime.mjs';
 import MusicPage from '../../components/media/MusicPage';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { loadLastFm } from '../../lib/mediaTrackers';
 const feed = await loadLastFm();
+const username = setting('LASTFM_USERNAME');
 ---
 
 <PageLayout title="Music | Meiloorun" description="Meiloorun's music: favourites, trackers, and recent activity.">
-  <MusicPage profileUrl={import.meta.env.LASTFM_USERNAME ? `https://www.last.fm/user/${encodeURIComponent(import.meta.env.LASTFM_USERNAME)}` : 'https://www.last.fm/'} feed={feed} />
+  <MusicPage profileUrl={username ? `https://www.last.fm/user/${encodeURIComponent(username)}` : 'https://www.last.fm/'} feed={feed} />
 </PageLayout>
 

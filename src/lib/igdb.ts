@@ -1,5 +1,6 @@
 import type { GameDetails, GameResult } from '../components/ui/GameShowcase';
 import { cachedGameMetadata } from './gameMetadataCache.mjs';
+import { setting, sharedTracker } from './trackerRuntime.mjs';
 
 interface IgdbGame {
   id: number; name: string; url: string; slug?: string; summary?: string; first_release_date?: number;
@@ -14,25 +15,26 @@ async function request(url: string, init: RequestInit): Promise<unknown> {
 }
 
 /** Build/server only. The page receives game details, never Twitch app credentials. */
-let tokenRequest: Promise<string> | undefined;
-
-function appToken(): Promise<string> {
-  return tokenRequest ??= request('https://id.twitch.tv/oauth2/token', {
+async function appToken(): Promise<string> {
+  const clientId = setting('IGDB_CLIENT_ID')!;
+  const clientSecret = setting('IGDB_CLIENT_SECRET')!;
+  const result = await cachedGameMetadata(`twitch-token-v1:${clientId}:${clientSecret}`, 3600000, () => request('https://id.twitch.tv/oauth2/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: import.meta.env.IGDB_CLIENT_ID, client_secret: import.meta.env.IGDB_CLIENT_SECRET, grant_type: 'client_credentials' }),
-  }).then(result => {
-    const token = (result as { access_token?: string }).access_token;
-    if (!token) throw new Error('IGDB authentication failed');
-    return token;
-  }).catch(error => { tokenRequest = undefined; throw error; });
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
+  }));
+  const token = (result as { access_token?: string }).access_token;
+  if (!token) throw new Error('IGDB authentication failed');
+  return token;
 }
 
 export interface LibraryGameArtwork { cover?: string; url: string; slug?: string }
 
 /** Fetch canonical slugs for the entire collection in sequential, rate-limited batches. */
 export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<number, LibraryGameArtwork>> {
+  const shared = await sharedTracker<Record<number, LibraryGameArtwork>>('library-artwork', [gameIds]);
+  if (shared) return shared.value;
   const ids = [...new Set(gameIds)].filter(id => Number.isSafeInteger(id) && id > 0).sort((a, b) => a - b);
-  if (!ids.length || !import.meta.env.IGDB_CLIENT_ID || !import.meta.env.IGDB_CLIENT_SECRET) return {};
+  if (!ids.length || !setting('IGDB_CLIENT_ID') || !setting('IGDB_CLIENT_SECRET')) return {};
   const artwork: Record<number, LibraryGameArtwork> = {};
   try {
     return await cachedGameMetadata(`library-artwork-v1:${ids.join(',')}`, 7 * 86400000, async () => {
@@ -41,7 +43,7 @@ export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<numb
       if (offset > 0) await new Promise(resolve => setTimeout(resolve, 300));
       const batch = ids.slice(offset, offset + 100);
       const result = await request('https://api.igdb.com/v4/games', {
-        method: 'POST', headers: { 'Client-ID': import.meta.env.IGDB_CLIENT_ID, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+        method: 'POST', headers: { 'Client-ID': setting('IGDB_CLIENT_ID')!, Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
         body: `fields id,url,slug,cover.image_id; where id = (${batch.join(',')}); limit 100;`,
       });
       if (!Array.isArray(result)) throw new Error('Invalid IGDB response');
@@ -56,9 +58,11 @@ export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<numb
 }
 
 export async function loadMainGame(): Promise<GameResult> {
-  const id = import.meta.env.IGDB_GAME_ID?.trim();
-  const clientId = import.meta.env.IGDB_CLIENT_ID;
-  const clientSecret = import.meta.env.IGDB_CLIENT_SECRET;
+  const shared = await sharedTracker<GameResult>('main-game');
+  if (shared) return shared.value;
+  const id = setting('IGDB_GAME_ID')?.trim();
+  const clientId = setting('IGDB_CLIENT_ID');
+  const clientSecret = setting('IGDB_CLIENT_SECRET');
   if (!id || !clientId || !clientSecret) return { state: 'unconfigured' };
   // Validate before interpolating into IGDB's query language.
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return { state: 'not-found' };

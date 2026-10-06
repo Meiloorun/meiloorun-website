@@ -1,18 +1,19 @@
 import type { MediaEntry, TrackerFeed } from '../components/ui/TrackerPanel';
 import { syncSimkl } from './simkl.mjs';
 import { cachedMediaFeed } from './mediaFeedCache.mjs';
+import { setting, sharedTracker } from './trackerRuntime.mjs';
 
 // Refresh intervals in milliseconds. Changing them here affects all media pages.
 const refreshIntervals = { anilist: 15 * 60000, simkl: 5 * 60000, lastFmTracks: 5 * 60000, lastFmArtists: 60 * 60000 };
 
-// TV and Movies share one sync and one token refresh per build.
-let simklFeed: ReturnType<typeof syncSimkl> | undefined;
 export async function loadSimkl() {
+  const shared = await sharedTracker<Awaited<ReturnType<typeof syncSimkl>>>('simkl');
+  if (shared) return shared.value;
   const options = {
-    clientId: import.meta.env.SIMKL_CLIENT_ID,
-    accessToken: import.meta.env.SIMKL_ACCESS_TOKEN,
-    refreshToken: import.meta.env.SIMKL_REFRESH_TOKEN,
-    clientSecret: import.meta.env.SIMKL_CLIENT_SECRET,
+    clientId: setting('SIMKL_CLIENT_ID'),
+    accessToken: setting('SIMKL_ACCESS_TOKEN'),
+    refreshToken: setting('SIMKL_REFRESH_TOKEN'),
+    clientSecret: setting('SIMKL_CLIENT_SECRET'),
   };
   if (!options.clientId || (!options.accessToken && !options.refreshToken)) return syncSimkl(options);
   const load = () => cachedMediaFeed(`simkl-v1:${options.clientId}:${options.refreshToken || options.accessToken}`, refreshIntervals.simkl, async () => {
@@ -20,7 +21,7 @@ export async function loadSimkl() {
     if (feed.shows.state !== 'ready' || feed.movies.state !== 'ready') throw new Error('Simkl refresh failed');
     return feed;
   }).catch(() => ({ shows: empty('unavailable'), movies: empty('unavailable') }));
-  return import.meta.env.DEV ? load() : simklFeed ??= load();
+  return load();
 }
 
 // Imported only by Astro route frontmatter. API keys never enter a React island.
@@ -43,7 +44,9 @@ interface AniListEntry {
 }
 
 export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed> {
-  const username = import.meta.env.ANILIST_USERNAME;
+  const shared = await sharedTracker<TrackerFeed>('anilist', [type]);
+  if (shared) return shared.value;
+  const username = setting('ANILIST_USERNAME');
   if (!username) return empty('unconfigured');
   try {
     return await cachedMediaFeed<TrackerFeed>(`anilist-v1:${username}:${type}`, refreshIntervals.anilist, async () => {
@@ -92,8 +95,10 @@ interface LastFmArtist {
 }
 
 export async function loadLastFm(): Promise<TrackerFeed> {
-  const username = import.meta.env.LASTFM_USERNAME;
-  const apiKey = import.meta.env.LASTFM_API_KEY;
+  const shared = await sharedTracker<TrackerFeed>('lastfm');
+  if (shared) return shared.value;
+  const username = setting('LASTFM_USERNAME');
+  const apiKey = setting('LASTFM_API_KEY');
   if (!username || !apiKey) return empty('unconfigured');
   const url = (method: string, period?: string) => {
     const endpoint = new URL('https://ws.audioscrobbler.com/2.0/');
@@ -147,6 +152,6 @@ export async function loadLastFm(): Promise<TrackerFeed> {
 }
 
 export function aniListProfile(list: 'mangalist' | 'animelist') {
-  const username = import.meta.env.ANILIST_USERNAME;
+  const username = setting('ANILIST_USERNAME');
   return username ? `https://anilist.co/user/${encodeURIComponent(username)}/${list}` : 'https://anilist.co/';
 }

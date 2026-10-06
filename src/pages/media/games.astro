@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+import { setting } from '../../lib/trackerRuntime.mjs';
 import GamesPage from '../../components/media/GamesPage';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { loadMainGame, loadLibraryArtwork } from '../../lib/igdb';
@@ -12,6 +14,6 @@ const [mainGame, artwork] = await Promise.all([
 ---
 
 <PageLayout title="Games | Meiloorun" description="Meiloorun's games: favourites, trackers, and recent activity.">
-  <GamesPage profileUrl={import.meta.env.INFINITE_BACKLOG_PROFILE_URL || undefined} mainGame={mainGame} library={library} artwork={artwork} />
+  <GamesPage profileUrl={setting('INFINITE_BACKLOG_PROFILE_URL')} mainGame={mainGame} library={library} artwork={artwork} streamParents={[Astro.url.hostname]} />
 </PageLayout>
 

@@ -1,7 +1,7 @@
-// Build-time only: never import this module into a React component.
+// Server only: never import this module into a React component.
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readCache as readJson, writeCache as saveJson } from './cacheStorage.mjs';
 
 const agent = 'meiloorun-website/0.8.0';
 const types = ['shows', 'movies', 'anime'];
@@ -21,16 +21,6 @@ export async function oauthRequest(clientId, endpoint, fields) {
   if (!object(result)) throw new Error('Invalid Simkl authentication response');
   // Return OAuth error codes for the device polling loop, never upstream messages.
   return { ok: response.ok, ...result };
-}
-
-async function readJson(path) {
-  try { return JSON.parse(await readFile(path, 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) return undefined; throw error; }
-}
-
-async function saveJson(path, value) {
-  await writeFile(`${path}.tmp`, JSON.stringify(value), { mode: 0o600 });
-  await rename(`${path}.tmp`, path);
 }
 
 function rows(payload, type) {
@@ -86,7 +76,6 @@ export function formatSimkl(library, updatedAt) {
 export async function syncSimkl({ clientId, accessToken, refreshToken, clientSecret, cacheDir = '.cache/simkl' }) {
   if (!clientId || (!accessToken && !refreshToken)) return { shows: blank('unconfigured'), movies: blank('unconfigured') };
   try {
-    await mkdir(cacheDir, { recursive: true });
     // Isolate cache by app and account grant without storing the source credential in a filename.
     const key = createHash('sha256').update(`${clientId}:${refreshToken || accessToken}`).digest('hex');
     const authPath = join(cacheDir, `${key}-auth.json`);

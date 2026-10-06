@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readCache, writeCache } from './cacheStorage.mjs';
 
 const pending = new Map();
 
@@ -11,15 +11,13 @@ export function cachedGameMetadata(key, maxAge, load, cacheDir = '.cache/igdb') 
   const task = (async () => {
     let cached;
     try {
-      cached = JSON.parse(await readFile(path, 'utf8'));
-      if (cached.version !== 1 || !Number.isFinite(cached.savedAt) || !('value' in cached)) cached = undefined;
+      cached = await readCache(path);
+      if (cached?.version !== 1 || !Number.isFinite(cached.savedAt) || !('value' in cached)) cached = undefined;
     } catch { /* Missing or malformed caches are rebuilt. */ }
     if (cached && Date.now() - cached.savedAt < maxAge) return cached.value;
     try {
       const value = await load();
-      await mkdir(cacheDir, { recursive: true });
-      await writeFile(`${path}.tmp`, JSON.stringify({ version: 1, savedAt: Date.now(), value }));
-      await rename(`${path}.tmp`, path);
+      await writeCache(path, { version: 1, savedAt: Date.now(), value });
       return value;
     } catch (error) {
       if (cached) {

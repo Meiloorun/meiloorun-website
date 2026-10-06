@@ -11,6 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "check": "astro check",
+    "test": "node --test scripts/*.test.mjs",
+    "deploy": "astro build && wrangler deploy",
     "connect:simkl": "node scripts/connect-simkl.mjs"
   },
   "dependencies": {
@@ -26,6 +28,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
-    "typescript": "^6.0.3"
+    "@astrojs/cloudflare": "^14.3.3",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.147.0"
   }
 }

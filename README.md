@@ -248,233 +248,70 @@ immediately visible artwork.
 
 ## Media pages
 
-`/media` is the hub, with one section per category and Games first. Edit the
-sections directly in `src/components/media/MediaPage.tsx`. Individual page copy
-lives inline in `GamesPage.tsx`, `MangaPage.tsx`, `ComicsPage.tsx`,
-`TvShowsPage.tsx`, `MoviesPage.tsx`, and `MusicPage.tsx`. Routes live under
-`src/pages/media/`; `MediaLayout` shares the header and hero treatment.
+`/media` is the hub, with Games first. Page content stays inline in
+`src/components/media/*Page.tsx`; routes live in `src/pages/media/`.
+`MediaLayout` shares the header and decorative treatment. `TrackerPanel`
+accepts a profile URL, optional embed URL, and normalized current/recent feeds.
 
-`TrackerPanel` accepts a `profileUrl`, optional `embedUrl`, and an optional
-`TrackerFeed` containing `current` and `recent` entries. It always includes
-an external tracker button. Without a personal URL, that button opens the
-tracker's homepage; it does not claim to link to your profile.
+The individual media pages now run on Cloudflare Workers. All visitors share
+a persistent SQLite-backed Durable Object cache, including Simkl's refreshed
+token and incremental sync checkpoint. The homepage, projects page, and media
+hub remain static. Credentials are read at runtime and never passed to React.
 
-Fill in the account settings in your local `.env`:
+See [CLOUDFLARE.md](CLOUDFLARE.md) for account setup, GitHub Actions secrets,
+local development, cache intervals, and custom-domain instructions.
+See [CACHE.md](CACHE.md) for the full request flow and storage explanation.
+This implementation lives on `cloudflare`; `master` keeps the existing GitHub
+Pages build. The workflows deploy only their respective branches. Cloudflare
+uses its default `workers.dev` address until a custom domain is configured.
+`.dev.vars.example` lists supported settings. Existing `.env` settings can
+still be used locally; production settings are uploaded as Worker secrets.
 
-- AniList: `ANILIST_USERNAME` enables public manga and anime lists.
-- Last.fm: `LASTFM_USERNAME` and `LASTFM_API_KEY` enable recent scrobbles
-  and the currently playing track at the time of the snapshot.
-- Simkl: `SIMKL_PROFILE_URL` sets the TV/movie profile button. Set
-  `SIMKL_CLIENT_ID`, then run `npm run connect:simkl` to authorise your account.
-  TV shows display currently watching and recently watched entries. Movies
-  display the watchlist and recently watched films, including anime movies.
-- Comics: `BATCAVE_PROFILE_URL` sets the profile button. Set `BATCAVE_EMBED_URL`
-  only after testing whether that actual profile permits embedding.
-- Games: `INFINITE_BACKLOG_PROFILE_URL` sets the backlog button. Backlog embedding
-  remains deferred; the main-game showcase, Twitch stream, and CSV library are implemented.
-
-TV and Movies use the API without embeds; profile buttons remain available
-if the API is unconfigured or unavailable.
-
-The AniList and Last.fm loaders live in `src/lib/mediaTrackers.ts` and run only
-in Astro frontmatter. Keys are not sent to the browser. Missing settings avoid
-network requests entirely; failed requests show a fallback without breaking
-the build. AniList and Last.fm requests have an eight-second timeout;
-Simkl requests have a fifteen-second timeout.
+- AniList uses `ANILIST_USERNAME` for manga and anime. Recent entries describe
+  list updates, which are not necessarily consumption dates.
+- Last.fm uses `LASTFM_USERNAME` and `LASTFM_API_KEY` for recent scrobbles,
+  the now-playing snapshot, and top artists over the last seven days.
+- TV and Movies share one Simkl sync. Movies include anime movies and your
+  ratings. Profile links remain available when an API is unavailable.
+- Comics uses `BATCAVE_PROFILE_URL` and an optional `BATCAVE_EMBED_URL`.
 
 ### Connecting Simkl
 
-1. Register a new **AUTH V2** application in
-   [Simkl developer settings](https://simkl.com/settings/developer/).
-   Select **TV, devices & command line** for the local connection helper.
-   No redirect URL or client secret is needed for that app type. Use
-   `https://meiloorun.github.io` as the application homepage.
-2. Put the client ID in `SIMKL_CLIENT_ID` in `.env`, and set
-   `SIMKL_PROFILE_URL` to your profile URL.
-3. Run `npm run connect:simkl`. Open the printed Simkl PIN page, enter the
-   code, and approve read-only access. The helper saves `SIMKL_ACCESS_TOKEN`
-   and `SIMKL_REFRESH_TOKEN` to `.env` without printing them.
-4. Run `npm run build` to take the first snapshot.
+Register an AUTH V2 application in [Simkl developer settings](https://simkl.com/settings/developer/).
+The local helper uses the **TV, devices & command line** app type, which requires
+no redirect URL or client secret. Put `SIMKL_CLIENT_ID` in `.env`, then run
+`npm run connect:simkl`. Approve the printed PIN; the helper writes the access
+and refresh tokens to your local `.env` without printing them.
 
-The loader refreshes expired access tokens automatically and caches the refreshed
-token and library privately under `.cache/simkl/` (ignored by Git).
-It checks activities before reading library changes, merges incremental updates,
-and reconciles removed entries. TV and Movies share one sync per production build.
-Recent entries are ordered by their actual last-watched timestamps.
-
-For deployment, provide `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, and
-`SIMKL_PROFILE_URL` through the build environment/secrets. The access token is
-optional when a refresh token is available. Persist `.cache/simkl/` between CI
-builds in a private cache to retain the sync checkpoint. Never publish that
-directory or `.env`. A confidential Server app also needs `SIMKL_CLIENT_SECRET`.
-Avoid concurrent builds sharing the same grant: refreshing invalidates its old
-access token. Use separate authorisations for independent build environments.
-If account access is revoked or the refresh token expires, rerun the connection helper.
-
-This is a static site: feeds are snapshots taken during `npm run build`.
-Rebuild/redeploy to update them. In development they update on page requests.
-For continuously refreshed feeds, add a server adapter or a scheduled rebuild.
-Feeds are cached privately in `.cache/media/` across page loads, server restarts,
-and builds. Refresh intervals are set in `src/lib/mediaTrackers.ts`:
-
-| Feed | Minimum refresh interval |
-| --- | --- |
-| AniList manga and anime | 15 minutes per list |
-| Simkl TV and Movies (shared sync) | 5 minutes |
-| Last.fm recent tracks / now playing snapshot | 5 minutes |
-| Last.fm top artists over seven days | 1 hour |
-
-Cache expiry triggers a refresh on the next page request or build, rather than
-background polling. Failed refreshes keep the last successful snapshot and its
-original timestamp. Retries back off for at least five minutes; AniList and
-Last.fm HTTP `Retry-After` headers can extend that delay. Simultaneous requests
-share the same load, and failed first loads also back off. Missing credentials
-still avoid all requests. Comics has no API loader to cache.
-Persist `.cache/` privately in CI to reuse these caches between deployments.
-Deleting a feed cache file forces a new fetch on the next load. Caching reduces
-request frequency but cannot guarantee immunity from provider limits, especially
-when multiple machines build independently.
-AniList's recent panel is explicitly labelled **Recent list updates** because
-a list edit is not proof that a chapter or episode was consumed at that time.
-Its anime list can also contain films; the Movies page is intended to use
-Simkl for both live-action and anime movies.
-
-API references: [AniList media lists](https://docs.anilist.co/guide/graphql/queries/media-list),
-[Last.fm recent tracks](https://www.last.fm/api/show/user.getRecentTracks),
-and [Simkl API](https://api.simkl.org/).
+Supply `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, and `SIMKL_PROFILE_URL`
+as deployment secrets. `SIMKL_ACCESS_TOKEN` is optional with a refresh token.
+A confidential server app also requires `SIMKL_CLIENT_SECRET`.
+Use separate authorisations for independently running local/production
+environments because refreshing can invalidate another instance's access token.
 
 ## Main game and Twitch stream
 
-Games page loading uses a parsed CSV cache until the export filename or contents
-change. IGDB covers and canonical slugs are stored in `.cache/igdb/` for seven
-days, keyed by the collection's sorted game IDs. Changing statuses or scores in
-the CSV updates the library immediately without repeating unchanged artwork
-requests. A changed set of IDs triggers a new metadata lookup.
-Main-game details are cached for one day, keyed by `IGDB_GAME_ID`.
-The disk cache survives dev-server restarts and local builds; stale metadata is
-retained if a refresh fails. Concurrent requests share the same lookup.
-As with Simkl, CI must preserve the private cache between builds to reuse it.
-The deployed static page performs no CSV parsing or IGDB requests for visitors.
+Set `IGDB_GAME_ID`, `IGDB_CLIENT_ID`, and `IGDB_CLIENT_SECRET` as runtime
+settings. Twitch app credentials come from the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
+IGDB uses client-credentials authentication; its redirect URL is unused here
+(`http://localhost` is suitable for registration).
+See [IGDB documentation](https://api-docs.igdb.com/#getting-started).
 
-### Infinite Backlog CSV
+Keep exactly one CSV in `src/data/games_export/`. Delete the old export, add
+the new one, and deploy to update the backlog. There is no filename setting.
+Only game ID, title, platform, status, completion, completion date, and rating
+reach the browser; private notes and purchase details are omitted.
+The collection shows playing entries, recent completions, and an expandable
+full library. The snapshot date comes from the export filename.
 
-Keep exactly one CSV in `src/data/games_export/`. To update the library, delete
-the old export, add the new one, and build/deploy. No filename or environment
-setting needs to change. A missing or duplicate CSV stops the build with a clear
-message instead of choosing a file arbitrarily. `src/lib/gameLibrary.ts` imports
-the CSV as build-only data; the raw export is not copied to the public site.
+IGDB supplies canonical slugs and covers in sequential batches of 100. Artwork
+is cached for seven days, keyed by sorted game IDs, and main-game details for
+one day per ID. Game links reuse the IGDB slug under your Infinite Backlog
+collection profile. Entries without a slug fall back to the profile link.
 
-The backlog shows all entries marked `Playing`, six recent `Beaten`/`Completed`
-entries ordered by their completion date, and an expandable full collection.
-Platform copies remain separate library entries. The snapshot date comes from
-the dated export filename; an undated filename gets a generic snapshot label.
-Only game ID, title, platform, status, completion, completion date, and overall
-rating are passed to the UI. Notes, purchases, and borrowing details are omitted.
-
-IGDB supplies canonical game slugs and covers for all unique library game IDs,
-using sequential batches of 100 with a pause between requests. The requests
-share the main game's app token. CSV details remain visible if requests fail;
-successfully fetched batches are retained. Metadata is refreshed at build time
-and has no persistent cache. Recent completions reflect recorded completion
-dates, not the last-edited timestamp. The main game uses `IGDB_GAME_ID`.
-
-Game links reuse the IGDB slug at `https://infinitebacklog.net/users/meiloorun/collection/<slug>`.
-`gameLibrary.ts` derives the username from the configured profile URL;
-there is no JSON mapping, handmade slug, or collection-entry ID. For example,
-Valheim opens `/users/meiloorun/collection/valheim` without a query string.
-The main game, playing cards, completion cards, and full collection use this
-pattern. Entries with no available IGDB slug fall back to the collection URL.
-Platform copies share the same game-level collection link.
-
-The Games page loads its current main game from IGDB at build time. Change
-`IGDB_GAME_ID` in `.env` and rebuild to switch games. Fill in the added settings:
-
-```env
-IGDB_GAME_ID=
-IGDB_CLIENT_ID=
-IGDB_CLIENT_SECRET=
-```
-
-Get the Client ID and Client Secret from a confidential app in the
-[Twitch Developer Console](https://dev.twitch.tv/console/apps). IGDB uses Twitch
-app authentication; these are not your Last.fm credentials. IGDB says its OAuth
-redirect URL is unused for this integration (use `http://localhost` for registration).
-See the [IGDB getting started guide](https://api-docs.igdb.com/#getting-started).
-The ID is IGDB's numeric game ID, not a slug, Steam ID, or Twitch category ID.
-`src/lib/igdb.ts` validates the ID, obtains an app token, and requests game details
-only in Astro frontmatter. No credentials are included in browser props or HTML.
-Missing credentials or failed requests leave a readable fallback and an IGDB link.
-Set the same private variables in your deployment build environment/GitHub Actions
-secrets; GitHub Pages serves only the generated static game details.
-
-`TwitchStream` is a reusable iframe component taking a channel and parent hostnames.
-The page embeds `meiloorun_` and includes localhost, 127.0.0.1, meiloorun.github.io,
-meiloorun.gg, and www.meiloorun.gg. Add any different preview hostname to the inline
-`parents` prop in `GamesPage.tsx`. Production embeds require HTTPS. Autoplay is off,
-and the stream loads independently of the game's build-time data. Twitch requires
-a player of at least 400×300 pixels; narrower layouts show a direct Twitch button.
-See [Twitch embed documentation](https://dev.twitch.tv/docs/embed/video-and-clips/).
-
-## Deploying to a separate GitHub Pages repository
-
-`.github/workflows/deploy-pages.yml` builds the source repository on pushes to
-`master` or `main`, or when manually run from Actions. It publishes only `dist/`
-to the **main branch of the destination repository**, with `keep_files: true`.
-The root hosts this website while the existing `samitracker/` folder and
-`.nojekyll` remain in place. Matching generated paths are updated; files absent
-from the new build are preserved, including old generated assets. Keep this
-website's build output out of `samitracker/`. The SamiTracker pipeline must
-also preserve the root website when publishing its own updates.
-
-Keep `.env` local. In the **source** repository, open **Settings → Secrets and
-variables → Actions → Secrets**, and add individual repository secrets with
-the same names as your local settings:
-
-- `ANILIST_USERNAME`
-- `LASTFM_USERNAME`, `LASTFM_API_KEY`
-- `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, `SIMKL_PROFILE_URL`
-- `IGDB_GAME_ID`, `IGDB_CLIENT_ID`, `IGDB_CLIENT_SECRET`
-- `INFINITE_BACKLOG_PROFILE_URL`, `BATCAVE_PROFILE_URL`
-
-Optional secrets: `BATCAVE_EMBED_URL`, `SIMKL_ACCESS_TOKEN`, and
-`SIMKL_CLIENT_SECRET` (only for a confidential Simkl app). Missing tracker
-credentials show that tracker's existing fallback. Do not include the `KEY=`
-part or surrounding quotes when pasting a value into GitHub's secret editor.
-The workflow passes values directly to the build environment; it creates no
-`.env` file and never publishes credentials or `.cache/`.
-
-Create a **fine-grained personal access token** in your GitHub account's
-**Settings → Developer settings → Personal access tokens**. Select the owner
-of the destination repository as the resource owner, restrict repository access
-to that repository, and grant **Contents: Read and write**. Save it as the
-`PAGES_DEPLOY_TOKEN` secret in the source repository. Set an appropriate expiry
-and update the secret when renewed. The source repo's automatic `GITHUB_TOKEN`
-cannot publish to another repository.
-
-In the source repo's **Actions → Variables** tab, add:
-
-| Variable | Value |
-| --- | --- |
-| `PAGES_REPOSITORY` | Destination owner/repo, e.g. `meiloorun/meiloorun.github.io` |
-| `PAGES_SITE_URL` | `https://meiloorun.github.io` initially |
-| `PAGES_CUSTOM_DOMAIN` | Leave unset initially; use `meiloorun.gg` when its DNS and Pages domain are configured |
-
-This workflow supports a site served at the domain root. A project site under
-`/<repository>/` needs additional base-path changes because existing links and
-image paths are absolute. For a custom domain, also change `PAGES_SITE_URL` to
-`https://meiloorun.gg`; `PAGES_CUSTOM_DOMAIN` writes the deployment's CNAME file.
-
-Commit and push the workflow, Astro config, and website source. In the destination
-repository's **Settings → Pages**, keep
-**Deploy from a branch → main → /(root)**.
-Future pushes build and deploy automatically. **Actions → Build and publish
-Pages → Run workflow** can refresh the deployed tracker snapshot without a code
-change. Local cache files are not transferred: each CI runner starts fresh.
-Only npm's dependency download cache is enabled; no account-token cache is uploaded.
-
-Deployment setup does not require sharing any secrets in chat. Existing staged
-changes are preserved; the new workflow and config edits must also be included
-in the commit you deploy.
+`TwitchStream` embeds `meiloorun_`. Its parent hostname is supplied by the
+Astro route, including Worker previews and custom domains. Autoplay is off;
+narrow layouts show the direct Twitch button.
 
 ## Commands
 
@@ -482,5 +319,7 @@ in the commit you deploy.
 - `npm run dev -- --background`: start the development server.
 - `npm run astro -- dev stop`: stop the background server.
 - `npm run check`: check Astro and TypeScript types.
-- `npm run build`: generate the static site in `dist/`.
+- `npm run build`: build static assets and the Cloudflare Worker in `dist/`.
 - `npm run preview`: preview the production build.
+- `npm test`: run cache and Simkl regression tests.
+- `npm run deploy`: build and deploy the Cloudflare Worker after Wrangler login.
