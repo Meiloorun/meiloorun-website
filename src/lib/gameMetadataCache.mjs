@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { readCache, writeCache } from './cacheStorage.mjs';
+import { trackerDiagnostic } from './trackerRequest.mjs';
 
 const pending = new Map();
 
@@ -21,7 +22,7 @@ export function cachedGameMetadata(key, maxAge, load, cacheDir = '.cache/igdb') 
       return value;
     } catch (error) {
       if (cached) {
-        console.warn('IGDB refresh unavailable; using previously cached game metadata.');
+        console.warn('IGDB refresh unavailable; using previously cached game metadata.', trackerDiagnostic(error));
         return cached.value;
       }
       throw error;

@@ -41,6 +41,18 @@ test('media caches share loads, preserve snapshots, expire and back off across r
     await assert.rejects(cache('cold-account', fail));
     await assert.rejects(cache('cold-account', fail));
     assert.equal(failures, 3, 'Failures without a saved feed also back off');
+    const diagnosticFailure = async () => { throw Object.assign(new Error('Tracker request failed'), {
+      code: 'http', httpStatus: 403, responseType: 'json', upstreamMessages: ['AniList rejection explanation'],
+      cfRay: 'abcdef1234567890-LHR',
+    }); };
+    await assert.rejects(cache('diagnostic-account', diagnosticFailure));
+    await assert.rejects(cache('diagnostic-account', () => { throw new Error('Should not request again'); }), error => {
+      assert.equal(error.code, 'cache-backoff');
+      assert.deepEqual(error.upstreamMessages, ['AniList rejection explanation']);
+      assert.equal(error.cfRay, 'abcdef1234567890-LHR');
+      assert.equal(error.httpStatus, 403);
+      return true;
+    });
   } finally {
     Date.now = originalNow;
     for (const file of await readdir(directory)) await unlink(join(directory, file));

@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { readCache as readJson, writeCache as saveJson } from './cacheStorage.mjs';
+import { trackerRequest, trackerHttpError, trackerDiagnostic, trackerErrorMessages } from './trackerRequest.mjs';
 
 const agent = 'meiloorun-website/0.8.0';
 const types = ['shows', 'movies', 'anime'];
@@ -16,11 +17,19 @@ export async function oauthRequest(clientId, endpoint, fields) {
     method: 'POST', signal: AbortSignal.timeout(15000),
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': agent },
     body: new URLSearchParams({ client_id: clientId, ...fields }),
-  });
-  const result = await response.json();
-  if (!object(result)) throw new Error('Invalid Simkl authentication response');
-  // Return OAuth error codes for the device polling loop, never upstream messages.
-  return { ok: response.ok, ...result };
+  }).catch(cause => { throw Object.assign(new Error('Simkl authentication connection failed'), {
+    code: ['TimeoutError', 'AbortError'].includes(cause?.name) ? 'timeout' : 'network',
+  }); });
+  const secrets = [clientId, ...Object.values(fields)];
+  const failure = !response.ok ? trackerDiagnostic(await trackerHttpError(response.clone(), { secrets })) : undefined;
+  let result;
+  try { result = await response.json(); }
+  catch { throw Object.assign(new Error('Invalid Simkl authentication response'), failure ?? { code: 'invalid-json', httpStatus: response.status }); }
+  if (!object(result)) throw Object.assign(new Error('Invalid Simkl authentication response'), { code: 'invalid-data' });
+  // Keep OAuth codes for device polling; only selected, redacted messages reach logs.
+  return { ...result, ok: response.ok, failure: failure ?? (result.error ? {
+    code: 'api', upstreamMessages: trackerErrorMessages(result, secrets),
+  } : undefined) };
 }
 
 function rows(payload, type) {
@@ -88,7 +97,7 @@ export async function syncSimkl({ clientId, accessToken, refreshToken, clientSec
         grant_type: 'refresh_token', refresh_token: refreshToken,
         ...(clientSecret ? { client_secret: clientSecret } : {}),
       });
-      if (!auth.ok || !auth.access_token || !Number.isFinite(auth.expires_in)) throw new Error('Reconnect Simkl');
+      if (!auth.ok || !auth.access_token || !Number.isFinite(auth.expires_in)) throw Object.assign(new Error('Reconnect Simkl'), auth.failure ?? { code: 'invalid-data' });
       token = auth.access_token;
       await saveJson(authPath, { accessToken: token, expiresAt: Date.now() + auth.expires_in * 1000 });
     };
@@ -96,13 +105,21 @@ export async function syncSimkl({ clientId, accessToken, refreshToken, clientSec
     const request = async (path, params = {}, retried = false) => {
       const url = new URL(`https://api.simkl.com${path}`);
       url.search = new URLSearchParams({ client_id: clientId, 'app-name': 'meiloorun-website', 'app-version': '0.8.0', ...params });
-      const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': agent, Authorization: `Bearer ${token}` } });
-      if (response.status === 401 && !retried && refreshToken) {
-        await refresh();
-        return request(path, params, true);
+      try {
+        const result = await trackerRequest(url.href, { headers: { 'User-Agent': agent, Authorization: `Bearer ${token}` } }, {
+          includeErrorMessages: true, timeout: 15000, secrets: [clientId, clientSecret, accessToken, refreshToken, token],
+        });
+        if (result?.error) throw Object.assign(new Error('Simkl API request failed'), {
+          code: 'api', upstreamMessages: trackerErrorMessages(result, [clientId, clientSecret, accessToken, refreshToken, token]),
+        });
+        return result;
+      } catch (error) {
+        if (error.httpStatus === 401 && !retried && refreshToken) {
+          await refresh();
+          return request(path, params, true);
+        }
+        throw error;
       }
-      if (!response.ok) throw new Error('Simkl request failed');
-      return response.json();
     };
     const cached = await readJson(dataPath);
     const activities = await request('/sync/activities');
@@ -153,8 +170,9 @@ export async function syncSimkl({ clientId, accessToken, refreshToken, clientSec
     // Never advance the sync checkpoint after a partially failed sync.
     await saveJson(dataPath, { activities, library, updatedAt, ratingsSynced: true });
     return formatSimkl(library, updatedAt);
-  } catch {
-    console.warn('Simkl feed unavailable. Check credentials or run npm run connect:simkl; keeping profile links.');
-    return { shows: blank('unavailable'), movies: blank('unavailable') };
+  } catch (error) {
+    const failure = trackerDiagnostic(error);
+    console.warn('Simkl feed unavailable. Check credentials or run npm run connect:simkl; keeping profile links.', failure);
+    return { shows: blank('unavailable'), movies: blank('unavailable'), failure };
   }
 }

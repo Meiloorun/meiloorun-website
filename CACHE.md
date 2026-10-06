@@ -119,6 +119,16 @@ delay it serves the saved snapshot without calling the API again. If no good
 snapshot exists, the loader shows its unavailable fallback and profile link.
 A later successful refresh clears the backoff and saves a new snapshot.
 
+API failures include up to three selected upstream error messages in Worker
+logs (`upstreamMessages`), each limited to 1,000 characters, plus the upstream
+Cloudflare Ray ID when available (`cfRay`). These fields are preserved in the
+failure record so backoff events retain the original explanation. Error bodies,
+request headers and credentials are not logged. Message capture covers AniList,
+Last.fm, Simkl (including OAuth), IGDB and Twitch authentication. Credential
+values are redacted before messages are logged or stored. AniList GraphQL,
+Last.fm and Simkl application errors returned with HTTP 200 also retain messages.
+Existing failure records gain these fields only after the next upstream attempt.
+
 `cachedGameMetadata` also serves stale metadata after a failed refresh, but
 currently has no persisted retry backoff. Once an IGDB record expires, each
 new visit can retry until one succeeds. Failed first lookups are not cached.

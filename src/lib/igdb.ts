@@ -1,6 +1,7 @@
 import type { GameDetails, GameResult } from '../components/ui/GameShowcase';
 import { cachedGameMetadata } from './gameMetadataCache.mjs';
 import { setting, sharedTracker } from './trackerRuntime.mjs';
+import { trackerRequest, trackerDiagnostic } from './trackerRequest.mjs';
 
 interface IgdbGame {
   id: number; name: string; url: string; slug?: string; summary?: string; first_release_date?: number;
@@ -9,9 +10,8 @@ interface IgdbGame {
 }
 
 async function request(url: string, init: RequestInit): Promise<unknown> {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error('IGDB request failed');
-  return response.json();
+  return trackerRequest(url, init, { includeErrorMessages: true,
+    secrets: [setting('IGDB_CLIENT_ID'), setting('IGDB_CLIENT_SECRET')] });
 }
 
 /** Build/server only. The page receives game details, never Twitch app credentials. */
@@ -53,7 +53,7 @@ export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<numb
     }
       return artwork;
     });
-  } catch { console.warn('Some library metadata unavailable; keeping CSV details and completed batches.'); }
+  } catch (error) { console.warn('Some library metadata unavailable; keeping CSV details and completed batches.', trackerDiagnostic(error)); }
   return artwork;
 }
 
@@ -87,8 +87,8 @@ export async function loadMainGame(): Promise<GameResult> {
     };
     return { state: 'ready', game };
     });
-  } catch {
-    console.warn('Main game details unavailable; retaining the IGDB link.');
+  } catch (error) {
+    console.warn('Main game details unavailable; retaining the IGDB link.', trackerDiagnostic(error));
     return { state: 'unavailable' };
   }
 }

@@ -31,7 +31,7 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
       const retryDelay = Math.max(300000, Number(error.retryDelay) || 0);
       await save({ ...(hasValue ? cached : { version: 1 }), retryAfter: Date.now() + retryDelay, failure: trackerDiagnostic(error) });
       if (hasValue) {
-        console.warn('Tracker refresh unavailable; using its previous cached snapshot.');
+        console.warn('Tracker refresh unavailable; using its previous cached snapshot.', trackerDiagnostic(error));
         return cached.value;
       }
       throw error;
