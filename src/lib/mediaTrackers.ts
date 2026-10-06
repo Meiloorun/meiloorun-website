@@ -2,6 +2,7 @@ import type { MediaEntry, TrackerFeed } from '../components/ui/TrackerPanel';
 import { syncSimkl } from './simkl.mjs';
 import { cachedMediaFeed } from './mediaFeedCache.mjs';
 import { setting, sharedTracker } from './trackerRuntime.mjs';
+import { trackerRequest as request, trackerDiagnostic } from './trackerRequest.mjs';
 
 // Refresh intervals in milliseconds. Changing them here affects all media pages.
 const refreshIntervals = { anilist: 15 * 60000, simkl: 5 * 60000, lastFmTracks: 5 * 60000, lastFmArtists: 60 * 60000 };
@@ -27,17 +28,6 @@ export async function loadSimkl() {
 // Imported only by Astro route frontmatter. API keys never enter a React island.
 const empty = (state: TrackerFeed['state']): TrackerFeed => ({ state, current: [], recent: [] });
 
-async function request(url: string, init?: RequestInit) {
-  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(8000) });
-  if (!response.ok) {
-    const error = new Error('Tracker request failed') as Error & { retryDelay?: number };
-    const retryAfter = response.headers.get('Retry-After');
-    if (retryAfter) error.retryDelay = /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Math.max(0, Date.parse(retryAfter) - Date.now());
-    throw error;
-  }
-  return response.json();
-}
-
 interface AniListEntry {
   progress: number; status: string; updatedAt: number;
   media: { title: { userPreferred: string }; siteUrl: string; coverImage: { medium: string }; format: string };
@@ -46,8 +36,11 @@ interface AniListEntry {
 export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed> {
   const shared = await sharedTracker<TrackerFeed>('anilist', [type]);
   if (shared) return shared.value;
-  const username = setting('ANILIST_USERNAME');
-  if (!username) return empty('unconfigured');
+  const username = setting('ANILIST_USERNAME')?.trim();
+  if (!username) {
+    console.warn(`AniList ${type} is not configured: ANILIST_USERNAME is missing from Worker runtime settings.`);
+    return empty('unconfigured');
+  }
   try {
     return await cachedMediaFeed<TrackerFeed>(`anilist-v1:${username}:${type}`, refreshIntervals.anilist, async () => {
     const result = await request('https://graphql.anilist.co', {
@@ -68,7 +61,13 @@ export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed>
         variables: { name: username, type },
       }),
     }) as { errors?: unknown[]; data?: { current: { mediaList: AniListEntry[] }; recent: { mediaList: AniListEntry[] } } };
-    if (result.errors?.length || !result.data) throw new Error('Invalid tracker response');
+    if (result.errors?.length) {
+      const status = (result.errors[0] as { status?: number })?.status;
+      throw Object.assign(new Error('AniList GraphQL request failed'), { code: 'graphql', httpStatus: status });
+    }
+    if (!Array.isArray(result.data?.current?.mediaList) || !Array.isArray(result.data?.recent?.mediaList)) {
+      throw Object.assign(new Error('Invalid tracker response'), { code: 'invalid-data' });
+    }
     const entry = (item: AniListEntry): MediaEntry => ({
       title: item.media.title.userPreferred, href: item.media.siteUrl, image: item.media.coverImage.medium,
       detail: `${item.status.toLowerCase().replaceAll('_', ' ')} / ${type === 'MANGA' ? 'chapter' : 'episode'} ${item.progress}`,
@@ -77,9 +76,9 @@ export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed>
     return { state: 'ready', current: result.data.current.mediaList.map(entry),
       recent: result.data.recent.mediaList.map(entry), updatedAt: new Date().toISOString() };
     });
-  } catch {
+  } catch (error) {
     // Don't log upstream URLs or responses: they may contain account details or API keys.
-    console.warn(`AniList ${type} feed unavailable; keeping the profile link.`);
+    console.warn(`AniList ${type} feed unavailable; keeping the profile link.`, trackerDiagnostic(error));
     return empty('unavailable');
   }
 }

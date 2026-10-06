@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { readCache, writeCache } from './cacheStorage.mjs';
+import { trackerDiagnostic } from './trackerRequest.mjs';
 
 const pending = new Map();
 
@@ -18,7 +19,7 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
     if (hasValue && Date.now() - cached.savedAt < maxAge) return cached.value;
     if (cached?.retryAfter > Date.now()) {
       if (hasValue) return cached.value;
-      throw new Error('Tracker refresh is backing off');
+      throw Object.assign(new Error('Tracker refresh is backing off'), { ...cached.failure, code: 'cache-backoff' });
     }
     const save = value => writeCache(path, value);
     try {
@@ -28,7 +29,7 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
     } catch (error) {
       // Preserve original snapshot dates; failures never count as successful refreshes.
       const retryDelay = Math.max(300000, Number(error.retryDelay) || 0);
-      await save({ ...(hasValue ? cached : { version: 1 }), retryAfter: Date.now() + retryDelay });
+      await save({ ...(hasValue ? cached : { version: 1 }), retryAfter: Date.now() + retryDelay, failure: trackerDiagnostic(error) });
       if (hasValue) {
         console.warn('Tracker refresh unavailable; using its previous cached snapshot.');
         return cached.value;
