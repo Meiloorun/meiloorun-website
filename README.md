@@ -1,4 +1,4 @@
-﻿# Meiloorun
+ï»¿# Meiloorun
 
 A personal Astro site with React, strict TypeScript, and a reusable ink-and-yellow UI.
 
@@ -253,24 +253,101 @@ immediately visible artwork.
 `MediaLayout` shares the header and decorative treatment. `TrackerPanel`
 accepts a profile URL, optional embed URL, and normalized current/recent feeds.
 
-The individual media pages now run on Cloudflare Workers. All visitors share
-a persistent SQLite-backed Durable Object cache, including Simkl's refreshed
-token and incremental sync checkpoint. The homepage, projects page, and media
-hub remain static. Credentials are read at runtime and never passed to React.
+This `railway` branch runs the media pages on a standalone Node server. Homepage,
+projects and the media hub remain static. Tracker credentials come from runtime
+environment variables and are never passed to React. The existing API freshness
+intervals, failure backoff and Simkl incremental sync are retained.
 
-See [CLOUDFLARE.md](CLOUDFLARE.md) for account setup, GitHub Actions secrets,
-local development, cache intervals, and custom-domain instructions.
-See [CACHE.md](CACHE.md) for the full request flow and storage explanation.
-This implementation lives on `cloudflare`; `master` keeps the existing GitHub
-Pages build. The workflows deploy only their respective branches. Cloudflare
-uses its default `workers.dev` address until a custom domain is configured.
-`.dev.vars.example` lists supported settings. Existing `.env` settings can
-still be used locally; production settings are uploaded as Worker secrets.
+Tracker data and Simkl authentication state use PostgreSQL through Drizzle ORM.
+`DATABASE_URL` is required for both local development and Railway. There is no
+file-cache fallback or old-volume import command. See [CACHE.md](CACHE.md) for
+the storage flow and refresh intervals.
+
+The `cloudflare` branch retains the Worker/Durable Object version, `collector`
+retains the local collector backup, and `master` retains GitHub Pages. Use `npm ci`
+after switching branches. [CLOUDFLARE.md](CLOUDFLARE.md) and the original Durable
+Object flow in [CACHE.md](CACHE.md) describe the Cloudflare branch.
+
+### Initial Railway deployment
+
+1. Push this branch and create a Railway project from the GitHub repository.
+   In the service settings select the `railway` branch for automatic deployments.
+2. `railway.json` configures `npm run build`, `npm run db:migrate` before deployment,
+   `npm start`, one replica and `/api/health` as the health check. Use Node 22.12 or newer; Railway supplies
+   `PORT`, and the start script defaults `HOST` to `0.0.0.0`.
+3. Add tracker settings described below through Railway's **Variables** interface.
+   Existing `.env` values can be copied privately;
+   do not commit the file. Production does not automatically read `.env` or
+   `.collector.env`. No `PUBLIC_` prefix should be added to API secrets.
+4. Add a PostgreSQL service in the same Railway project. In the website service,
+   create `DATABASE_URL` as a reference to the database service's private
+   `DATABASE_URL` (use Railway's variable picker). The pre-deploy command applies
+   the checked-in migration. No database is contacted during `npm run build`.
+   No cache volume or `TRACKER_DATA_DIR` setting is required on the website service.
+5. Generate a public domain in Railway's Networking settings. Optionally set
+   `SITE_URL` to that HTTPS origin and redeploy for consistent site metadata.
+   A custom domain is not required; Twitch uses the current request hostname.
+6. Open `/api/health` to check the server and configured database table. A database
+   connection/schema failure returns 503. This does not call trackers or certify
+   their credentials. Then open Manga, TV, Movies, Music
+   and Games; examine Railway logs for upstream errors. Successful API access
+   must be verified from Railway, especially AniList, before changing domains.
+7. Configure a hard usage limit covering the app and PostgreSQL. Keep one replica
+   and one Node process: pending-load maps coordinate requests within a process,
+   but distributed locking for multiple replicas has not been added.
+
+The first uncached Games visit can take longer while IGDB metadata is fetched.
+API calls happen on requests, not during production builds. Stop the old
+Cloudflare/collector installation from refreshing the same Simkl authorization,
+or use a separate authorization, to avoid competing token refreshes.
+
+For a local production check, run `npm run build` followed by `npm start`.
+The production server reads your shell environment; it does not load `.env`.
+For local development use `npm run dev -- --background`, which reads `.env`
+through the server middleware, and stop it with `npm run astro -- dev stop`.
+
+Railway deployment uses the repository integration; no new GitHub
+Actions deployment workflow is required. The existing Cloudflare workflow remains
+guarded to the `cloudflare` branch.
+
+### PostgreSQL and Drizzle
+
+`src/db/schema.ts` defines the first table, `tracker_cache`: a primary-keyed cache
+identifier, a JSONB record and an update timestamp. The JSONB payload stores
+snapshots, expiry/backoff state, Simkl tokens and the raw sync checkpoint.
+This initial migration does not turn the CSV library or tracker entries into
+individual relational rows; future application tables can be added to the schema.
+All application queries use Drizzle. The checked-in SQL files under `drizzle/`
+are generated schema migrations, not hand-written application queries.
+
+For local database development, set `DATABASE_URL` in your private `.env` and run
+`npm run db:migrate` before starting the dev server. Railway's internal hostname
+is only reachable inside Railway; use a local PostgreSQL database or its public
+TCP-proxy connection URL when running commands from your own machine. The tools
+do not print connection URLs or stored token records.
+
+Commands:
+
+- `npm run db:generate`: generate a migration after editing the typed schema;
+  needs no database connection.
+- `npm run db:migrate`: apply outstanding migrations. Already-applied migrations
+  are tracked by Drizzle. The command fails if `DATABASE_URL` is missing.
+
+The cache starts empty and repopulates on visits. No old cache files or volume
+imports are used. The website service does not need a persistent filesystem;
+the PostgreSQL service retains its own database storage.
+
+Keep database access private to the backend. `tracker_cache` contains private
+authentication records, not just public media entries. Enable database backups
+in Railway separately. Changing a local `.env` never changes Railway variables.
 
 - AniList uses `ANILIST_USERNAME` for manga and anime. Recent entries describe
   list updates, which are not necessarily consumption dates.
 - Last.fm uses `LASTFM_USERNAME` and `LASTFM_API_KEY` for recent scrobbles,
-  the now-playing snapshot, and top artists over the last seven days.
+  live now-playing status, and top artists over the last seven days. Listening
+  history and artist charts are cached for one minute. Now playing is never
+  stored: the visible music page polls `/api/music/now-playing` every 15 seconds,
+  pauses in background tabs, and honours retry delays after upstream errors.
 - TV and Movies share one Simkl sync. Movies include anime movies and your
   ratings. Profile links remain available when an API is unavailable.
 - Comics uses `BATCAVE_PROFILE_URL` and an optional `BATCAVE_EMBED_URL`.
@@ -284,7 +361,7 @@ no redirect URL or client secret. Put `SIMKL_CLIENT_ID` in `.env`, then run
 and refresh tokens to your local `.env` without printing them.
 
 Supply `SIMKL_CLIENT_ID`, `SIMKL_REFRESH_TOKEN`, and `SIMKL_PROFILE_URL`
-as deployment secrets. `SIMKL_ACCESS_TOKEN` is optional with a refresh token.
+as Railway runtime variables. `SIMKL_ACCESS_TOKEN` is optional with a refresh token.
 A confidential server app also requires `SIMKL_CLIENT_SECRET`.
 Use separate authorisations for independently running local/production
 environments because refreshing can invalidate another instance's access token.
@@ -306,7 +383,8 @@ full library. The snapshot date comes from the export filename.
 
 IGDB supplies canonical slugs and covers in sequential batches of 100. Artwork
 is cached for seven days, keyed by sorted game IDs, and main-game details for
-one day per ID. Game links reuse the IGDB slug under your Infinite Backlog
+one day per ID. The cached Twitch app-token lookup expires after one hour.
+Game links reuse the IGDB slug under your Infinite Backlog
 collection profile. Entries without a slug fall back to the profile link.
 
 `TwitchStream` embeds `meiloorun_`. Its parent hostname is supplied by the
@@ -319,7 +397,8 @@ narrow layouts show the direct Twitch button.
 - `npm run dev -- --background`: start the development server.
 - `npm run astro -- dev stop`: stop the background server.
 - `npm run check`: check Astro and TypeScript types.
-- `npm run build`: build static assets and the Cloudflare Worker in `dist/`.
+- `npm run build`: build static assets and the Node server in `dist/`.
+- `npm start`: run the production Node server (build first).
 - `npm run preview`: preview the production build.
 - `npm test`: run cache and Simkl regression tests.
-- `npm run deploy`: build and deploy the Cloudflare Worker after Wrangler login.
+- Railway deploys the selected branch through its GitHub integration.

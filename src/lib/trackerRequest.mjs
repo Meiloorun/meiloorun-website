@@ -64,7 +64,7 @@ export function trackerErrorMessages(errors, secrets = []) {
 }
 
 export function trackerDiagnostic(error) {
-  const allowed = ['http', 'upstream-challenge', 'timeout', 'network', 'invalid-json', 'graphql', 'api', 'invalid-data', 'cache-backoff'];
+  const allowed = ['http', 'upstream-challenge', 'timeout', 'network', 'invalid-json', 'graphql', 'api', 'invalid-data', 'cache-backoff', 'database'];
   const messages = trackerErrorMessages(Array.isArray(error?.upstreamMessages) ?
     error.upstreamMessages.map(message => ({ message })) : []);
   return {

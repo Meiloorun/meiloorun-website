@@ -1,9 +1,7 @@
-import { resolve } from 'node:path';
 import { withTrackerRuntime } from './trackerRuntime.mjs';
 
-/** Keeps the existing loaders usable on Node without Cloudflare bindings. */
-export function withNodeTrackerRuntime(env, task) {
-  return withTrackerRuntime({ env, node: true,
-    cacheRoot: env.TRACKER_DATA_DIR ? resolve(env.TRACKER_DATA_DIR) : undefined,
-  }, task);
+export async function withNodeTrackerRuntime(env, task) {
+  if (!env.DATABASE_URL?.trim()) throw Object.assign(new Error('DATABASE_URL is required'), { code: 'database' });
+  const storage = (await import('../db/client.ts')).databaseConnection(env.DATABASE_URL.trim()).storage;
+  return withTrackerRuntime({ env, node: true, storage }, task);
 }

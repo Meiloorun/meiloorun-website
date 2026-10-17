@@ -1,6 +1,5 @@
 // Server only: never import this module into a React component.
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 import { readCache as readJson, writeCache as saveJson } from './cacheStorage.mjs';
 import { trackerRequest, trackerHttpError, trackerDiagnostic, trackerErrorMessages } from './trackerRequest.mjs';
 
@@ -82,13 +81,13 @@ export function formatSimkl(library, updatedAt) {
   };
 }
 
-export async function syncSimkl({ clientId, accessToken, refreshToken, clientSecret, cacheDir = '.cache/simkl' }) {
+export async function syncSimkl({ clientId, accessToken, refreshToken, clientSecret }) {
   if (!clientId || (!accessToken && !refreshToken)) return { shows: blank('unconfigured'), movies: blank('unconfigured') };
   try {
     // Isolate cache by app and account grant without storing the source credential in a filename.
     const key = createHash('sha256').update(`${clientId}:${refreshToken || accessToken}`).digest('hex');
-    const authPath = join(cacheDir, `${key}-auth.json`);
-    const dataPath = join(cacheDir, `${key}-library.json`);
+    const authPath = `.cache/simkl/${key}-auth.json`;
+    const dataPath = `.cache/simkl/${key}-library.json`;
     const cachedAuth = await readJson(authPath);
     let token = cachedAuth?.accessToken || accessToken;
     const refresh = async () => {

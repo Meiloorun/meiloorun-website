@@ -1,20 +1,16 @@
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 import { readCache, writeCache } from './cacheStorage.mjs';
 import { trackerDiagnostic } from './trackerRequest.mjs';
 
 const pending = new Map();
 
 /** Cache successful feeds and back off after failures. No request URLs or credentials are saved. */
-export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
-  const path = join(cacheDir, `${createHash('sha256').update(key).digest('hex')}.json`);
+export function cachedMediaFeed(key, maxAge, load) {
+  const path = `.cache/media/${createHash('sha256').update(key).digest('hex')}.json`;
   if (pending.has(path)) return pending.get(path);
   const task = (async () => {
-    let cached;
-    try {
-      cached = await readCache(path);
-      if (cached?.version !== 1) cached = undefined;
-    } catch { /* A missing or invalid cache can be rebuilt. */ }
+    let cached = await readCache(path);
+    if (cached?.version !== 1) cached = undefined;
     const hasValue = cached && 'value' in cached;
     if (hasValue && Date.now() - cached.savedAt < maxAge) return cached.value;
     if (cached?.retryAfter > Date.now()) {

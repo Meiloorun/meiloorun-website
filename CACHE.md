@@ -1,203 +1,83 @@
-# Railway branch storage
+# PostgreSQL tracker caching
 
-The `railway` branch runs the existing loaders directly on Node. Astro middleware
-provides request-scoped runtime settings; `sharedTracker` bypasses Cloudflare
-bindings in that context. Freshness intervals and failure handling are unchanged.
+This `railway` branch uses PostgreSQL for all persistent tracker state. Set
+`DATABASE_URL` in Railway and in the private local `.env` used for development.
+There is no filesystem-cache backend, cache import, or website cache volume.
+The `cloudflare` and `collector` branches retain their separate implementations.
 
-Without a storage binding, `cacheStorage.mjs` uses private files. Set
-`TRACKER_DATA_DIR=/data` and attach a Railway volume at `/data` so `.cache/` lives
-on persistent storage. Simkl's authentication and raw library checkpoint are
-private files there too. Missing or malformed JSON caches rebuild on demand.
-Successful writes use a temporary file followed by a rename.
+## Request flow
 
-Pending-load maps coordinate overlapping requests in one Node process. Use one
-process/replica until database storage and cross-process coordination are added.
-An ephemeral container filesystem cannot preserve state across deployments.
-PostgreSQL integration is a follow-up; adding `DATABASE_URL` has no effect yet.
+1. Astro middleware places a request-scoped PostgreSQL adapter in the tracker
+   runtime. Without `DATABASE_URL`, dynamic routes return an unavailable response.
+2. A loader checks its cache record using the shared `readCache`/`writeCache`
+   boundary. The Drizzle adapter executes selects and upserts through a small,
+   reused connection pool.
+3. Fresh data is returned. Expired data is refreshed on demand and saved on success.
+   Cache expiry does not schedule work by itself; ordinary feeds refresh on visits.
+4. The page receives formatted display data. Authentication records and Simkl's
+   raw synchronization checkpoint remain server-side.
 
-The remainder documents the earlier Cloudflare implementation retained on the
-`cloudflare` branch. It is not the Railway request flow.
+`src/db/schema.ts` defines `tracker_cache`: `key`, JSONB `value`, and `updated_at`.
+The stored payload contains snapshot dates, expiry/backoff state and diagnostics.
+`updated_at` records the write, not a new successful API sync. Internal identifiers
+may retain `.cache/...json` naming for compatibility with existing database keys;
+these are strings in PostgreSQL, not files or filesystem operations.
 
-# Shared tracker caching
+## Freshness
 
-This describes the Cloudflare implementation on the `cloudflare` branch.
-The `master` branch remains the static GitHub Pages version: its API loaders
-run during builds, so browser visits do not update its tracker snapshots.
+| Data | Fresh for |
+| --- | --- |
+| AniList Manga / Anime | 1 minute per list |
+| Last.fm completed listening history | 1 minute |
+| Last.fm seven-day top artists | 1 minute |
+| IGDB collection artwork and slugs | 7 days |
+| IGDB main-game details | 1 day per game ID |
+| Twitch app-token lookup | 1 hour |
+| Simkl combined TV / Movies feed | 5 minutes, unchanged |
+| Last.fm now playing | Never stored; fresh API request |
 
-## What gets cached
+Simkl checks activities first, downloads only changed categories and retains its
+incremental library, ratings checkpoint and refreshed authentication records in
+PostgreSQL. Keeping that state is necessary even though local disk caches are gone.
 
-The cache stores tracker data and game metadata, not a complete rendered page.
-Astro renders each media page using that data when someone visits. The homepage,
-projects page, and media hub are built as static HTML and need no tracker fetch.
-There is no browser-local cache in this implementation.
+## Live music status
 
-Every visitor, on every device, uses the same private Durable Object. Workers
-can run in different locations, but all tracker requests go to the named object
-`media-v1` in the `TRACKER_CACHE` namespace. Its persistent storage is backed
-by SQLite; the application uses its key/value API, so no SQL tables need managing.
+Now playing uses Last.fm's `user.getrecenttracks` now-playing marker. The music
+page fetches fresh status during rendering, then a small React island requests
+`/api/music/now-playing` every 15 seconds while visible. Background tabs pause;
+returning to the page requests an update. Fetches and endpoint responses use
+`no-store`; there is no database, browser-storage or completed-response cache.
+Only concurrent, overlapping upstream requests share a promise.
 
-## One page request, step by step
+History caching filters out the currently playing track before writing its record.
+Now playing and history can therefore share the initial upstream request without
+persisting live status. Playback stopping clears the track; a failure shows status
+unavailable instead of an old song as live. Errors back off for at least a minute,
+and the browser honours a longer upstream Retry-After. This is polling, not push
+notifications, and depends on the music player's Last.fm reporting.
 
-1. A browser requests a media page, such as `/media/music`.
-2. `src/worker.ts` receives the request and gives Astro the Worker settings.
-   `withTrackerRuntime` keeps those settings scoped to this request through
-   AsyncLocalStorage. It does not copy credentials into a global variable.
-3. The Astro route calls the existing loader, such as `loadLastFm()`.
-4. `sharedTracker()` sends an internal request to the Durable Object. The
-   object is accessed through a Cloudflare binding, not a public browser URL.
-5. `TrackerCache` queues the request and runs the requested loader inside a
-   context containing the object's persistent storage. The loader detects that
-   it is already inside the object and executes directly, rather than calling
-   the object recursively.
-6. The loader calls `cachedMediaFeed()` or `cachedGameMetadata()`. That helper
-   reads the saved value and checks its age before deciding whether to call
-   the external API.
-7. A successful API result replaces the saved snapshot. The object returns
-   display data to the Astro route, which renders it into the response.
-   Credentials and Simkl's raw library are not included in browser props.
+## Failures and coordination
 
-## Freshness and expiry
+Media-feed failures preserve successful stale snapshots and a retry delay of at
+least five minutes, extended by Retry-After when applicable. Failure backoff is
+separate from successful-data freshness intervals. IGDB preserves stale metadata
+on failure without a persisted retry delay. Database failures are not cache misses:
+they do not silently switch to another backend or trigger fresh API requests.
 
-A feed record looks conceptually like this:
+Pending-load maps coordinate overlapping requests in one Node process. Keep one
+replica/process until distributed refresh locking is implemented; PostgreSQL shares
+data but does not itself serialize independent Simkl token-refresh operations.
 
-```js
-{
-  version: 1,
-  savedAt: 1791273600000,
-  value: { /* successful tracker data */ },
-  retryAfter: undefined
-}
-```
+## Migrations and privacy
 
-`savedAt` is the time of the successful cache write. `value.updatedAt`, when
-present, is the tracker snapshot time shown in the UI. `retryAfter` is only
-added after a failed refresh to delay another attempt.
+Run `npm run db:generate` after editing the typed schema and review its generated
+migration. Railway applies outstanding migrations using `npm run db:migrate` in
+pre-deploy. `/api/health` verifies database/table access without contacting trackers.
+No database is needed during the static production build.
 
-| Data | Considered fresh for | Where to change it |
-| --- | --- | --- |
-| AniList manga and anime | 15 minutes per list | `mediaTrackers.ts` |
-| Simkl TV and Movies together | 5 minutes | `mediaTrackers.ts` |
-| Last.fm recent tracks / now playing | 5 minutes | `mediaTrackers.ts` |
-| Last.fm top artists over seven days | 1 hour | `mediaTrackers.ts` |
-| IGDB collection artwork and slugs | 7 days | `igdb.ts` |
-| IGDB main-game details | 1 day per game ID | `igdb.ts` |
-| Twitch app token for IGDB | 1 hour | `igdb.ts` |
-
-Expiry is a freshness rule, not a timer that runs a job or deletes data.
-If nobody visits for a week, there are no polling requests. The first visit
-after expiry waits for a refresh; subsequent visits use the new snapshot.
-For example, Music visited at 12:00 fetches recent tracks, 12:03 reuses them,
-and the first visit at or after 12:05 refreshes them. The artists chart can
-still be reused until its own one-hour interval expires.
-
-Refreshing the browser page respects those rules. There is no automatic
-updating while a page is already open, and manual force-refresh buttons are
-not implemented yet. The now-playing label describes the last successful sync.
-
-## Keys and invalidation
-
-Loaders choose keys based on the account, feed, and relevant parameters.
-The helpers hash each key with SHA-256 and use it as a storage identifier.
-The `.cache/media/...json` and `.cache/igdb/...json` strings are identifiers
-inside Cloudflare storage, not actual files on its server.
-
-Different accounts/lists use different records. Changing `IGDB_GAME_ID` selects
-a different main-game record. Collection artwork uses the sorted unique IGDB
-IDs: changing game statuses or scores in the CSV reuses artwork, while adding
-or removing an ID selects a new artwork cache. Older records are not currently
-garbage-collected. Changing a loader's key/version can deliberately select a
-new cache when the saved format changes.
-
-Hashing keeps credentials out of identifiers; it is not encryption. Credential
-values needed for refreshes remain in private Worker secrets or token records.
-Protecting that storage depends on Cloudflare account access and the absence
-of a public endpoint exposing it.
-
-## Simultaneous visitors
-
-The object has a promise queue (`tail`) that serializes whole loader operations,
-including their network requests. The second request waits for the first to
-finish, then checks the now-populated cache. This prevents duplicate cold loads
-and competing Simkl token refreshes/checkpoint writes.
-
-The `pending` maps in the cache helpers also combine overlapping loads of the
-same key within one running process. Those maps alone would not coordinate
-separate Workers, and disappear on restart. The Durable Object is what provides
-the shared owner and durable state across requests.
-
-The queue covers all trackers. At this site's low traffic that is simple and
-safe, but a slow cold Games lookup can temporarily delay a Music request.
-Splitting independent trackers into separate objects is a possible future
-optimization if actual traffic makes that noticeable.
-
-## Failed refreshes
-
-`cachedMediaFeed` preserves the last successful value and snapshot time when
-an upstream request fails. It records a retry delay of at least five minutes;
-AniList and Last.fm `Retry-After` headers can extend that delay. During the
-delay it serves the saved snapshot without calling the API again. If no good
-snapshot exists, the loader shows its unavailable fallback and profile link.
-A later successful refresh clears the backoff and saves a new snapshot.
-
-API failures include up to three selected upstream error messages in Worker
-logs (`upstreamMessages`), each limited to 1,000 characters, plus the upstream
-Cloudflare Ray ID when available (`cfRay`). These fields are preserved in the
-failure record so backoff events retain the original explanation. Error bodies,
-request headers and credentials are not logged. Message capture covers AniList,
-Last.fm, Simkl (including OAuth), IGDB and Twitch authentication. Credential
-values are redacted before messages are logged or stored. AniList GraphQL,
-Last.fm and Simkl application errors returned with HTTP 200 also retain messages.
-Existing failure records gain these fields only after the next upstream attempt.
-
-`cachedGameMetadata` also serves stale metadata after a failed refresh, but
-currently has no persisted retry backoff. Once an IGDB record expires, each
-new visit can retry until one succeeds. Failed first lookups are not cached.
-Cache outages or Worker quota failures are separate from upstream API errors;
-the cached upstream fallback does not guarantee availability during those outages.
-
-## Simkl has an additional sync cache
-
-The outer five-minute cache contains the formatted TV and Movies feeds.
-Inside `syncSimkl`, two additional private records are retained:
-
-- **Authentication:** refreshed access token and expiry. The initial refresh
-  token comes from a Worker secret. Simkl authentication is renewed when the
-  cached token is near expiry, or once after a 401 response.
-- **Library checkpoint:** the raw shows/movies/anime library, previous activity
-  timestamps, rating-sync state, and successful sync date.
-
-After the five-minute cache expires, Simkl checks `/sync/activities`. Unchanged
-categories reuse their saved library. Changed categories fetch and merge
-incremental updates; deletions reconcile the active IDs. Movie/anime ratings
-have their own delta checks. The library checkpoint advances only after the
-whole sync succeeds. These raw/auth records never reach the browser.
-
-Visits to either TV or Movies therefore refresh the same combined feed. Local
-development and production have separate stores, so avoid refreshing the same
-Simkl authorisation independently from both instances; the object cannot
-coordinate a separate local server or the GitHub Pages build pipeline.
-
-## Where the data lives
-
-| Environment | Storage | Survives restart? | Shared with production? |
-| --- | --- | --- | --- |
-| Deployed Cloudflare Worker | Durable Object SQLite storage | Yes, including normal deployments | This is production storage |
-| Local Cloudflare dev/preview | Wrangler's emulated storage under `.wrangler/` | Yes, unless deleted | No |
-| Node CLI/cache tests | Private files under `.cache/` or a test directory | Yes, until deleted | No |
-
-`cacheStorage.mjs` chooses the Durable Object's `get`/`put` methods when its
-storage context exists. Otherwise it uses Node file reads and atomic writes.
-That fallback keeps local Node tools/tests usable; it is not the deployed
-Worker's persistence mechanism. `.cache/` and `.wrangler/` are ignored by Git
-and are not uploaded as the production cache.
-
-`wrangler.jsonc` declares the namespace, class, and initial SQLite migration.
-Keep the Worker namespace and the named object identity stable to keep using
-the existing cache. Renaming the object selects different storage; deleting
-the namespace or its storage loses the cache. A new deployment updates code
-and configured secrets without automatically clearing saved snapshots.
-
-The CSV is separate: it is bundled with the server, parsed and reused in memory
-while that Worker instance lives, and reparsed after an instance restarts.
-Replacing the export still requires deployment. It is not fetched from Infinite
-Backlog and is not uploaded into the shared tracker store.
+The table contains private tokens as well as public snapshots. It is not exposed
+through a public data endpoint. Known credential values are redacted from selected
+API diagnostics; database driver exceptions are replaced with safe errors because
+query parameters can contain tokens. Enable database backups separately in Railway.
+The Infinite Backlog CSV remains a bundled manual export, parsed in memory; it is
+not an old disk-cache backend and still requires deployment when replaced.

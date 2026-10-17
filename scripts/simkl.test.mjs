@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readdir, readFile, unlink, rmdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { syncSimkl, formatSimkl } from '../src/lib/simkl.mjs';
+import { withTrackerRuntime } from '../src/lib/trackerRuntime.mjs';
+import { syncSimkl as sync, formatSimkl } from '../src/lib/simkl.mjs';
 
 const row = (id, status = 'watching') => ({
   status, last_watched_at: '2026-10-01T00:00:00Z', next_to_watch: 'S01E02',
@@ -31,7 +29,9 @@ test('film feed includes anime movies and sorts by watched dates, not list edits
 });
 
 test('sync handles unchanged activity, deltas, deletions, token expiry and failed checkpoints', async () => {
-  const cacheDir = await mkdtemp(join(tmpdir(), 'meiloorun-simkl-'));
+  const values = new Map();
+  const storage = { get: async key => structuredClone(values.get(key)), put: async (key, value) => { values.set(key, structuredClone(value)); } };
+  const syncSimkl = options => withTrackerRuntime({ env: {}, storage }, () => sync(options));
   const originalFetch = globalThis.fetch;
   const queue = [];
   globalThis.fetch = async (url, init) => {
@@ -44,7 +44,7 @@ test('sync handles unchanged activity, deltas, deletions, token expiry and faile
     if (expected.token) assert.equal(init.headers.Authorization, `Bearer ${expected.token}`);
     return new Response(JSON.stringify(expected.body), { status: expected.status ?? 200 });
   };
-  const options = { clientId: 'test-client', accessToken: 'old-token', refreshToken: 'test-refresh', cacheDir };
+  const options = { clientId: 'test-client', accessToken: 'old-token', refreshToken: 'test-refresh' };
   try {
     const a = '2026-10-01T00:00:00Z';
     const b = '2026-10-02T00:00:00Z';
@@ -79,19 +79,17 @@ test('sync handles unchanged activity, deltas, deletions, token expiry and faile
       { path: '/sync/activities', token: 'new-token', body: { ...activities(b), tv_shows: { watching: b, removed_from_list: b } } },
     );
     assert.equal((await syncSimkl(options)).shows.state, 'ready');
-    const libraryPath = join(cacheDir, (await readdir(cacheDir)).find(name => name.endsWith('-library.json')));
-    const checkpoint = await readFile(libraryPath, 'utf8');
+    const libraryPath = [...values.keys()].find(name => name.endsWith('-library.json'));
+    const checkpoint = structuredClone(values.get(libraryPath));
     queue.push(
       { path: '/sync/activities', body: activities('2026-10-03T00:00:00Z') },
       { path: '/sync/all-items/shows', since: b, status: 503, body: {} },
     );
     assert.equal((await syncSimkl(options)).shows.state, 'unavailable');
-    assert.equal(await readFile(libraryPath, 'utf8'), checkpoint);
+    assert.deepEqual(values.get(libraryPath), checkpoint);
     assert.equal(queue.length, 0);
     assert.equal((await syncSimkl({})).shows.state, 'unconfigured');
   } finally {
     globalThis.fetch = originalFetch;
-    for (const file of await readdir(cacheDir)) await unlink(join(cacheDir, file));
-    await rmdir(cacheDir);
   }
 });

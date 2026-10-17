@@ -7,5 +7,9 @@ import { withNodeTrackerRuntime } from './lib/nodeTrackerRuntime.mjs';
 const developmentEnv = import.meta.env.DEV
   ? (await import('vite')).loadEnv(import.meta.env.MODE, process.cwd(), '') : {};
 
-export const onRequest = defineMiddleware((_context, next) =>
-  withNodeTrackerRuntime({ ...developmentEnv, ...process.env }, next));
+export const onRequest = defineMiddleware((context, next) => {
+  if (context.isPrerendered) return next();
+  const env = { ...developmentEnv, ...process.env };
+  if (!env.DATABASE_URL?.trim()) return Response.json({ status: 'unavailable' }, { status: 503 });
+  return withNodeTrackerRuntime(env, next);
+});

@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readdir, unlink, rmdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { cachedMediaFeed } from '../src/lib/mediaFeedCache.mjs';
+import { withTrackerRuntime } from '../src/lib/trackerRuntime.mjs';
 
 test('media caches share loads, preserve snapshots, expire and back off across requests', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'meiloorun-media-'));
+  const values = new Map();
+  const storage = { get: async key => structuredClone(values.get(key)), put: async (key, value) => { values.set(key, structuredClone(value)); } };
+  const run = task => withTrackerRuntime({ env: {}, storage }, task);
   const originalNow = Date.now;
   let now = originalNow();
   Date.now = () => now;
   let calls = 0;
   const load = async () => { calls++; return { updatedAt: new Date(now).toISOString(), entries: ['track'] }; };
-  const cache = (key, loader = load) => cachedMediaFeed(key, 60000, loader, directory);
+  const cache = (key, loader = load) => run(() => cachedMediaFeed(key, 60000, loader));
   try {
     const [first, second] = await Promise.all([cache('account-a'), cache('account-a')]);
     assert.deepEqual(first, second);
@@ -55,7 +55,5 @@ test('media caches share loads, preserve snapshots, expire and back off across r
     });
   } finally {
     Date.now = originalNow;
-    for (const file of await readdir(directory)) await unlink(join(directory, file));
-    await rmdir(directory);
   }
 });
