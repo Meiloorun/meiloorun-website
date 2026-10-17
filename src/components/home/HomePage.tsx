@@ -12,13 +12,6 @@ export default function HomePage() {
   return (
     <SiteShell
       name="Meiloorun"
-      navigation={[
-        { label: '01 / Intro', href: '#intro' },
-        { label: '02 / Explore', href: '#explore' },
-        { label: '03 / About', href: '#about' },
-        { label: '04 / Projects', href: '/projects' },
-        { label: '05 / Media', href: '/media' },
-      ]}
       headerNote={<>A personal collection<br />of all my things.</>}
       footerNote="EVEN IF THE WHOLE WORLD FORGETS YOU, I WILL NEVER FORGET YOU"
       decorations={
@@ -70,7 +63,7 @@ export default function HomePage() {
           <>
             <span>THIS IS<br /></span>
             <span>MY<br /></span>
-            <span className={styles.highlight}>UNIVERSE.</span>
+            <span className={styles.highlight}>DOMAIN.</span>
           </>
         }
         mediaPosition="left"
@@ -118,7 +111,7 @@ export default function HomePage() {
         eyebrow={
           <div className={styles.eyebrow}>
             <InkLabel tone="yellow">HEY LOL</InkLabel>
-            <span>EST. / ALWAYS IN MOTION</span>
+            <span>EST. / MOTION MAN MOTION MAN</span>
           </div>
         }
         media={
@@ -149,7 +142,7 @@ export default function HomePage() {
         }
       >
         <div className={styles.introCopy}>
-          <span className={styles.cross} aria-hidden="true">✳</span>
+          <img className={styles.cross} src="/images/deco-7.svg" alt="" aria-hidden="true" width={48} height={48} draggable={false} />
           <p>This is my homepage, it's where I put all of myself, everything I do and everything I am.</p>
         </div>
       </Section>

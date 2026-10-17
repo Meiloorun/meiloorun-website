@@ -126,8 +126,13 @@
   padding-bottom: 12px;
 }
 
-.metadata span {
-  font-size: 28px;
+.metadataDecoration {
+  display: block;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .sticker {

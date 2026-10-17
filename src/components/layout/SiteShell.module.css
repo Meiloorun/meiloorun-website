@@ -95,8 +95,13 @@
   letter-spacing: 1px;
 }
 
-.footer > span:last-child {
-  font-size: 28px;
+.footerDecoration {
+  display: block;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .skipLink {

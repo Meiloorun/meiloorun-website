@@ -29,7 +29,7 @@ export function ArtworkFrame({
   return (
     <div className={`${styles.wrapper} ${className}`} data-variant={variant}>
       {metadata && (
-        <div className={styles.metadata}>{metadata}<span aria-hidden="true">✳</span></div>
+        <div className={styles.metadata}>{metadata}<img className={styles.metadataDecoration} src="/images/deco-7.svg" alt="" aria-hidden="true" width={28} height={28} draggable={false} /></div>
       )}
       <figure className={styles.frame} data-has-caption={hasLabel}>
         <div className={styles.visual}>
