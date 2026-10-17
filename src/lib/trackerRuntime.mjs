@@ -10,7 +10,7 @@ export const setting = name => runtime.getStore()?.env?.[name] || undefined;
 // refreshes are coordinated. They run directly when already inside that object.
 export async function sharedTracker(kind, args = []) {
   const context = trackerRuntime();
-  if (context?.storage) return undefined;
+  if (context?.storage || context?.node) return undefined;
   if (!context?.env?.TRACKER_CACHE) throw new Error('Tracker storage is not configured');
   const namespace = context.env.TRACKER_CACHE;
   const stub = namespace.get(namespace.idFromName('media-v1'));

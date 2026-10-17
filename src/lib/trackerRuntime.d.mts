@@ -1,5 +1,7 @@
 export interface TrackerRuntime {
   env: Record<string, any>;
+  node?: boolean;
+  cacheRoot?: string;
   storage?: { get<T = any>(key: string): Promise<T | undefined>; put(key: string, value: any): Promise<void> };
 }
 export function withTrackerRuntime<T>(context: TrackerRuntime, task: () => T): T;

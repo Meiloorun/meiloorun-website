@@ -1,3 +1,23 @@
+# Railway branch storage
+
+The `railway` branch runs the existing loaders directly on Node. Astro middleware
+provides request-scoped runtime settings; `sharedTracker` bypasses Cloudflare
+bindings in that context. Freshness intervals and failure handling are unchanged.
+
+Without a storage binding, `cacheStorage.mjs` uses private files. Set
+`TRACKER_DATA_DIR=/data` and attach a Railway volume at `/data` so `.cache/` lives
+on persistent storage. Simkl's authentication and raw library checkpoint are
+private files there too. Missing or malformed JSON caches rebuild on demand.
+Successful writes use a temporary file followed by a rename.
+
+Pending-load maps coordinate overlapping requests in one Node process. Use one
+process/replica until database storage and cross-process coordination are added.
+An ephemeral container filesystem cannot preserve state across deployments.
+PostgreSQL integration is a follow-up; adding `DATABASE_URL` has no effect yet.
+
+The remainder documents the earlier Cloudflare implementation retained on the
+`cloudflare` branch. It is not the Railway request flow.
+
 # Shared tracker caching
 
 This describes the Cloudflare implementation on the `cloudflare` branch.

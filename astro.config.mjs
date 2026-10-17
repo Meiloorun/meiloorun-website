@@ -3,13 +3,14 @@ import { defineConfig } from 'astro/config';
 import { loadEnv } from 'vite';
 
 import react from '@astrojs/react';
-import cloudflare from '@astrojs/cloudflare';
+import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
-  // Optional metadata origin. Hosting works on workers.dev without a domain.
+  // Optional metadata origin. Railway's generated domain works without a custom domain.
   site: loadEnv('production', '.', 'SITE_').SITE_URL || undefined,
-  adapter: cloudflare({ imageService: 'passthrough' }),
+  adapter: node({ mode: 'standalone' }),
+  image: { service: { entrypoint: 'astro/assets/services/noop' } },
   session: false,
   integrations: [react()]
 });
