@@ -8,7 +8,7 @@ import musicStyles from './MusicPage.module.css';
 import styles from './MediaPage.module.css';
 
 export default function MusicPage({ profileUrl, feed, nowPlaying }: { profileUrl: string; feed: TrackerFeed; nowPlaying?: ReactNode }) {
-  return <MediaLayout heroArtwork="/images/deco-dontoliver.svg" title={<>MY<br /><span className={styles.highlight}>MURZIK.</span></>} description="Whatever's in my headphones. Recent scrobbles, current listening, and the soundtrack to everything else.">
+  return <MediaLayout heroArtwork="/images/deco-dontoliver.svg" title={<>MY<br /><span className={styles.highlight}>MURZIK.</span></>} description="i got a pretty diverse and comp murszik taste, yeah i got spotify premium.">
     <Section title="Music / listening log" decorations={<MediaSectionDecorations mark="/images/deco-6.svg" />}>
       <TrackerPanel name="Last.fm" profileUrl={profileUrl} feed={feed} currentLabel="Now playing / live" recentLabel="Recently listened" emptyMessage="My listening history is coming soon. The soundtrack lives on Last.fm."
         currentContent={nowPlaying}
@@ -23,7 +23,7 @@ export default function MusicPage({ profileUrl, feed, nowPlaying }: { profileUrl
           {feed.topArtists.map((artist, index) => (
             <li key={artist.href}>
               <span className={musicStyles.number} aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-              <a href={artist.href} target="_blank" rel="noopener noreferrer" aria-label={`${artist.title} on Last.fm (opens in a new tab)`}>{artist.title}<span aria-hidden="true"></span></a>
+              <a href={artist.href} target="_blank" rel="noopener noreferrer" aria-label={`${artist.title} on Last.fm (opens in a new tab)`}>{artist.title}<span aria-hidden="true"> ↗</span></a>
               <p>{artist.detail}</p>
             </li>
           ))}
