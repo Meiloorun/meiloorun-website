@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { markComicRead, readingDatabase, readingPage } from '../../../lib/comicReading.ts';
+import { adminWriteError } from '../../../lib/adminRequest.ts';
 
 export const prerender = false;
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -9,7 +10,9 @@ export const GET: APIRoute = async ({ url }) => {
   catch { return json({ error: 'Reading progress is unavailable. Check the database migration.' }, 503); }
 };
 
-export const PUT: APIRoute = async ({ request }) => {
+export const PUT: APIRoute = async ({ request, locals }) => {
+  const denied = adminWriteError(request, locals?.adminSession);
+  if (denied) return denied;
   if (!request.headers.get('Content-Type')?.startsWith('application/json')) return json({ error: 'JSON is required.' }, 415);
   let body;
   try {

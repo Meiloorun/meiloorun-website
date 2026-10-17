@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { withTrackerRuntime, setting, sharedTracker } from '../src/lib/trackerRuntime.mjs';
+import { withTrackerRuntime, setting } from '../src/lib/trackerRuntime.mjs';
 import { cachedMediaFeed } from '../src/lib/mediaFeedCache.mjs';
 import { readCache, writeCache } from '../src/lib/cacheStorage.mjs';
 
@@ -26,24 +26,10 @@ test('durable cache survives a new request/storage wrapper and retries retain th
   assert.deepEqual(await run(() => readCache('private-auth')), { accessToken: 'test-only-token' });
 });
 
-test('request contexts isolate credentials and dispatch only to the private shared object', async () => {
-  const requests = [];
-  const namespace = {
-    idFromName: name => name,
-    get: id => ({ fetch: async (url, options) => {
-      requests.push({ id, url, payload: JSON.parse(options.body) });
-      return Response.json({ state: 'ready' });
-    } }),
-  };
-  await Promise.all(['first', 'second'].map(name => withTrackerRuntime({ env: { NAME: name, TRACKER_CACHE: namespace } }, async () => {
+test('request contexts isolate runtime settings across concurrent requests', async () => {
+  await Promise.all(['first', 'second'].map(name => withTrackerRuntime({ env: { NAME: name } }, async () => {
     await Promise.resolve();
     assert.equal(setting('NAME'), name);
-    assert.deepEqual(await sharedTracker('simkl'), { value: { state: 'ready' } });
   })));
   assert.equal(setting('NAME'), undefined);
-  assert.equal(requests.length, 2);
-  assert.ok(requests.every(request => request.id === 'media-v1' && request.payload.kind === 'simkl'));
-  assert.equal(await withTrackerRuntime({ env: {}, storage: storage(new Map()) }, () => sharedTracker('simkl')), undefined,
-    'A loader inside the object executes directly rather than recursively dispatching');
-  await assert.rejects(sharedTracker('simkl'), /not configured/);
 });

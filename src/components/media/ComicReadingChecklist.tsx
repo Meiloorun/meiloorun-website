@@ -4,8 +4,8 @@ import styles from './ComicReadingChecklist.module.css';
 
 const emptySummary: ReadingSummary = { total: 0, read: 0, chapters: [] };
 
-export default function ComicReadingChecklist({ initialSummary }: {
-  initialSummary?: ReadingSummary;
+export default function ComicReadingChecklist({ initialSummary, canEdit: initiallyCanEdit = false }: {
+  initialSummary?: ReadingSummary; canEdit?: boolean;
 }) {
   const formId = useId();
   const [expanded, setExpanded] = useState(false);
@@ -19,6 +19,7 @@ export default function ComicReadingChecklist({ initialSummary }: {
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [canEdit, setCanEdit] = useState(initiallyCanEdit);
   const [error, setError] = useState(initialSummary ? '' : 'Reading progress is temporarily unavailable.');
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function ComicReadingChecklist({ initialSummary }: {
   }, [expanded, chapter, status, query, page, revision]);
 
   async function markRead(id: string, isRead: boolean) {
-    if (saving || loading) return;
+    if (!canEdit || saving || loading) return;
     setSaving(true);
     setError('');
     try {
@@ -52,6 +53,7 @@ export default function ComicReadingChecklist({ initialSummary }: {
         body: JSON.stringify({ id, isRead }), signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) {
+        if (response.status === 401) setCanEdit(false);
         const body = await response.json();
         throw new Error(body.error || 'Could not save reading progress.');
       }
@@ -72,6 +74,7 @@ export default function ComicReadingChecklist({ initialSummary }: {
       <progress className={styles.progress} value={summary.read} max={summary.total || 1} aria-label="Marvel reading progress" />
       <p className={styles.intro}>One issue at a time. Following the <a href={marvelSource} target="_blank" rel="noreferrer">Comic Book Reading Orders Marvel master list ↗</a>.</p>
       <p className={styles.status}>Includes publicly available parts and their event lists. Membership-only lists are excluded.</p>
+      <p className={styles.status}>{canEdit ? 'Admin editing is enabled.' : <>Reading progress is view-only. <a href="/admin">Sign in as admin</a> to make changes.</>}</p>
       <div className={styles.filters}>
         <label>Reading order<select value={chapter} disabled={saving} onChange={event => { setChapter(event.target.value); setPage(1); }}>
           <option value="">All parts</option>
@@ -90,7 +93,7 @@ export default function ComicReadingChecklist({ initialSummary }: {
       <ol className={styles.issues} aria-busy={loading || saving}>
         {data?.issues.map(issue => <li key={issue.id} className={styles.issue} data-read={issue.isRead}>
           <label>
-            <input type="checkbox" checked={issue.isRead} disabled={saving || loading} onChange={event => void markRead(issue.id, event.target.checked)} />
+            <input type="checkbox" checked={issue.isRead} disabled={!canEdit || saving || loading} onChange={event => void markRead(issue.id, event.target.checked)} />
             <span className={styles.position}>{String(issue.position).padStart(4, '0')}</span>
             <span className={styles.issueTitle}>{issue.title}{issue.year && <small> ({issue.year})</small>}</span>
             <span className={styles.readLabel}>{issue.isRead ? 'Read' : 'Unread'}</span>

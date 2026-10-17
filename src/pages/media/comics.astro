@@ -12,7 +12,7 @@ const summary = await readingSummary(readingDatabase()).catch(() => undefined);
 
 <PageLayout title="Comics | Meiloorun" description="Meiloorun's comics: favourites, trackers, and recent activity.">
   <ComicsPage profileUrl={setting('BATCAVE_PROFILE_URL')} embedUrl={setting('BATCAVE_EMBED_URL')}>
-    <ComicReadingChecklist slot="readingTracker" client:load initialSummary={summary} />
+    <ComicReadingChecklist slot="readingTracker" client:load initialSummary={summary} canEdit={!!Astro.locals.adminSession} />
   </ComicsPage>
 </PageLayout>
 

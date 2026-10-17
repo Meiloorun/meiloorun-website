@@ -1,6 +1,6 @@
 import type { GameDetails, GameResult } from '../components/ui/GameShowcase';
 import { cachedGameMetadata } from './gameMetadataCache.mjs';
-import { setting, sharedTracker } from './trackerRuntime.mjs';
+import { setting } from './trackerRuntime.mjs';
 import { trackerRequest, trackerDiagnostic } from './trackerRequest.mjs';
 
 interface IgdbGame {
@@ -31,8 +31,6 @@ export interface LibraryGameArtwork { cover?: string; url: string; slug?: string
 
 /** Fetch canonical slugs for the entire collection in sequential, rate-limited batches. */
 export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<number, LibraryGameArtwork>> {
-  const shared = await sharedTracker<Record<number, LibraryGameArtwork>>('library-artwork', [gameIds]);
-  if (shared) return shared.value;
   const ids = [...new Set(gameIds)].filter(id => Number.isSafeInteger(id) && id > 0).sort((a, b) => a - b);
   if (!ids.length || !setting('IGDB_CLIENT_ID') || !setting('IGDB_CLIENT_SECRET')) return {};
   const artwork: Record<number, LibraryGameArtwork> = {};
@@ -57,10 +55,8 @@ export async function loadLibraryArtwork(gameIds: number[]): Promise<Record<numb
   return artwork;
 }
 
-export async function loadMainGame(): Promise<GameResult> {
-  const shared = await sharedTracker<GameResult>('main-game');
-  if (shared) return shared.value;
-  const id = setting('IGDB_GAME_ID')?.trim();
+export async function loadMainGame(gameId: number | null): Promise<GameResult> {
+  const id = gameId === null ? undefined : String(gameId);
   const clientId = setting('IGDB_CLIENT_ID');
   const clientSecret = setting('IGDB_CLIENT_SECRET');
   if (!id || !clientId || !clientSecret) return { state: 'unconfigured' };

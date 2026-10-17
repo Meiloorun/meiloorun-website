@@ -3,7 +3,7 @@
 This `railway` branch uses PostgreSQL for all persistent tracker state. Set
 `DATABASE_URL` in Railway and in the private local `.env` used for development.
 There is no filesystem-cache backend, cache import, or website cache volume.
-The `cloudflare` and `collector` branches retain their separate implementations.
+Other deployment branches retain their separate implementations.
 
 ## Request flow
 

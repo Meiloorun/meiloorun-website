@@ -10,7 +10,7 @@ test('trackers respect one-minute AniList, five-minute Simkl, and longer IGDB ca
   const startedAt = now;
   Date.now = () => now;
   const values = new Map(), calls = new Map();
-  const env = { ANILIST_USERNAME: 'test', IGDB_GAME_ID: '1', IGDB_CLIENT_ID: 'client', IGDB_CLIENT_SECRET: 'secret',
+  const env = { ANILIST_USERNAME: 'test', IGDB_CLIENT_ID: 'client', IGDB_CLIENT_SECRET: 'secret',
     SIMKL_CLIENT_ID: 'client', SIMKL_ACCESS_TOKEN: 'token' };
   const run = task => withTrackerRuntime({ env, storage: {
     get: async key => structuredClone(values.get(key)), put: async (key, value) => { values.set(key, structuredClone(value)); },
@@ -26,7 +26,7 @@ test('trackers respect one-minute AniList, five-minute Simkl, and longer IGDB ca
     return Response.json({ shows: [], movies: [], anime: [] });
   };
   const load = () => run(async () => {
-    await loadAniList('MANGA'); await loadMainGame(); await loadLibraryArtwork([1]); await loadSimkl();
+    await loadAniList('MANGA'); await loadMainGame(1); await loadLibraryArtwork([1]); await loadSimkl();
   });
   try {
     await load();
@@ -54,10 +54,10 @@ test('trackers respect one-minute AniList, five-minute Simkl, and longer IGDB ca
 
     const beforeMainExpiry = calls.get('api.igdb.com/v4/games');
     now = startedAt + 86400000 - 1;
-    await run(() => loadMainGame());
+    await run(() => loadMainGame(1));
     assert.equal(calls.get('api.igdb.com/v4/games'), beforeMainExpiry);
     now += 2;
-    await run(() => loadMainGame());
+    await run(() => loadMainGame(1));
     assert.equal(calls.get('api.igdb.com/v4/games'), beforeMainExpiry + 1);
 
     const beforeArtworkExpiry = calls.get('api.igdb.com/v4/games');
@@ -67,5 +67,14 @@ test('trackers respect one-minute AniList, five-minute Simkl, and longer IGDB ca
     now += 2;
     await run(() => loadLibraryArtwork([1]));
     assert.equal(calls.get('api.igdb.com/v4/games'), beforeArtworkExpiry + 1);
+
+    const beforeSelectionChange = calls.get('api.igdb.com/v4/games');
+    await run(() => loadMainGame(2));
+    assert.equal(calls.get('api.igdb.com/v4/games'), beforeSelectionChange + 1, 'A different selected ID has its own cache');
+    await run(() => loadMainGame(2));
+    assert.equal(calls.get('api.igdb.com/v4/games'), beforeSelectionChange + 1, 'Repeated loads reuse that game cache');
+    assert.equal((await run(() => loadMainGame(null))).state, 'unconfigured');
+    assert.equal(calls.get('api.igdb.com/v4/games'), beforeSelectionChange + 1, 'Clearing the selection makes no IGDB request');
   } finally { globalThis.fetch = originalFetch; Date.now = originalNow; }
 });
+

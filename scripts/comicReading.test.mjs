@@ -54,16 +54,19 @@ test('comic migrations, read/unread changes, filters and pagination persist pers
   } finally { await client.close(); }
 });
 
-test('public editing validates JSON without requiring a token', async () => {
+test('editing requires an admin session and validates JSON', async () => {
   const request = (body, contentType = 'application/json') => ({ request: new Request('https://example.test/api/comics/reading', {
-    method: 'PUT', headers: { 'Content-Type': contentType }, body: JSON.stringify(body),
-  }) });
+    method: 'PUT', headers: { 'Content-Type': contentType, Origin: 'https://example.test' }, body: JSON.stringify(body),
+  }), locals: { adminSession: { id: 'synthetic-session' } } });
   const run = task => withTrackerRuntime({ env: {} }, task);
+  const anonymous = request({ id: 'a', isRead: true });
+  anonymous.locals.adminSession = null;
+  assert.equal((await run(() => PUT(anonymous))).status, 401);
   assert.equal((await run(() => PUT(request({ id: 'a', isRead: true }, 'text/plain')))).status, 415);
   assert.equal((await run(() => PUT(request({ id: 'a', isRead: 'yes' })))).status, 400);
   assert.equal((await run(() => PUT(request({ id: '', isRead: true })))).status, 400);
   const response = await run(() => PUT(request({ id: 'a', isRead: true })));
-  assert.equal(response.status, 503, 'A valid anonymous request reaches the database layer, which has no URL in this test');
+  assert.equal(response.status, 503, 'An authorized request reaches the database layer, which has no URL in this test');
   assert.deepEqual(await response.json(), { error: 'Could not save reading progress. Please retry.' });
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
 });

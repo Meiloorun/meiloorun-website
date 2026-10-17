@@ -5,9 +5,13 @@ import GamesPage from '../../components/media/GamesPage';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { loadMainGame, loadLibraryArtwork } from '../../lib/igdb';
 import { loadGameLibrary } from '../../lib/gameLibrary';
+import { readMainGameId, siteSettingsDatabase } from '../../lib/siteSettings';
 const library = await loadGameLibrary();
 const [mainGame, artwork] = await Promise.all([
-  loadMainGame(),
+  Promise.resolve().then(() => readMainGameId(siteSettingsDatabase())).then(loadMainGame).catch(() => {
+    console.warn('Main game setting unavailable. Check database configuration and migrations.');
+    return { state: 'unavailable' } as const;
+  }),
   loadLibraryArtwork(library.entries.flatMap(game => game.igdbId ? [game.igdbId] : [])),
 ]);
 

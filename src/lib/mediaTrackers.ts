@@ -2,15 +2,13 @@ import type { MediaEntry, TrackerFeed } from '../components/ui/TrackerPanel';
 import { lastFmRequest, recentLastFmTracks, lastFmTrackEntry } from './lastFm.ts';
 import { syncSimkl } from './simkl.mjs';
 import { cachedMediaFeed } from './mediaFeedCache.mjs';
-import { setting, sharedTracker } from './trackerRuntime.mjs';
+import { setting } from './trackerRuntime.mjs';
 import { trackerRequest as request, trackerDiagnostic, trackerErrorMessages } from './trackerRequest.mjs';
 
 // Refresh intervals in milliseconds. Changing them here affects all media pages.
 const refreshIntervals = { anilist: 60000, simkl: 5 * 60000, lastFmTracks: 60000, lastFmArtists: 60000 };
 
 export async function loadSimkl() {
-  const shared = await sharedTracker<Awaited<ReturnType<typeof syncSimkl>>>('simkl');
-  if (shared) return shared.value;
   const options = {
     clientId: setting('SIMKL_CLIENT_ID'),
     accessToken: setting('SIMKL_ACCESS_TOKEN'),
@@ -38,11 +36,9 @@ interface AniListEntry {
 }
 
 export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed> {
-  const shared = await sharedTracker<TrackerFeed>('anilist', [type]);
-  if (shared) return shared.value;
   const username = setting('ANILIST_USERNAME')?.trim();
   if (!username) {
-    console.warn(`AniList ${type} is not configured: ANILIST_USERNAME is missing from Worker runtime settings.`);
+    console.warn(`AniList ${type} is not configured: ANILIST_USERNAME is missing from server runtime settings.`);
     return empty('unconfigured');
   }
   try {
@@ -83,7 +79,7 @@ export async function loadAniList(type: 'MANGA' | 'ANIME'): Promise<TrackerFeed>
       recent: result.data.recent.mediaList.map(entry), updatedAt: new Date().toISOString() };
     });
   } catch (error) {
-    // Only selected public AniList error messages and diagnostics reach Worker logs.
+    // Only selected public AniList error messages and diagnostics reach server logs.
     console.warn(`AniList ${type} feed unavailable; keeping the profile link.`, trackerDiagnostic(error));
     return empty('unavailable');
   }
@@ -94,8 +90,6 @@ interface LastFmArtist {
 }
 
 export async function loadLastFm(): Promise<TrackerFeed> {
-  const shared = await sharedTracker<TrackerFeed>('lastfm');
-  if (shared) return shared.value;
   const username = setting('LASTFM_USERNAME');
   const apiKey = setting('LASTFM_API_KEY');
   if (!username || !apiKey) return empty('unconfigured');

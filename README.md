@@ -263,10 +263,9 @@ Tracker data and Simkl authentication state use PostgreSQL through Drizzle ORM.
 file-cache fallback or old-volume import command. See [CACHE.md](CACHE.md) for
 the storage flow and refresh intervals.
 
-The `cloudflare` branch retains the Worker/Durable Object version, `collector`
-retains the local collector backup, and `master` retains GitHub Pages. Use `npm ci`
-after switching branches. [CLOUDFLARE.md](CLOUDFLARE.md) and the original Durable
-Object flow in [CACHE.md](CACHE.md) describe the Cloudflare branch.
+Alternative deployment implementations remain on their separate branches.
+This branch uses Railway's Node server and PostgreSQL. Use `npm ci` after
+switching branches to install the dependencies for that version.
 
 ### Initial Railway deployment
 
@@ -298,7 +297,7 @@ Object flow in [CACHE.md](CACHE.md) describe the Cloudflare branch.
 
 The first uncached Games visit can take longer while IGDB metadata is fetched.
 API calls happen on requests, not during production builds. Stop the old
-Cloudflare/collector installation from refreshing the same Simkl authorization,
+tracker installation from refreshing the same Simkl authorization,
 or use a separate authorization, to avoid competing token refreshes.
 
 For a local production check, run `npm run build` followed by `npm start`.
@@ -307,8 +306,7 @@ For local development use `npm run dev -- --background`, which reads `.env`
 through the server middleware, and stop it with `npm run astro -- dev stop`.
 
 Railway deployment uses the repository integration; no new GitHub
-Actions deployment workflow is required. The existing Cloudflare workflow remains
-guarded to the `cloudflare` branch.
+Actions deployment workflow is required.
 
 ### PostgreSQL and Drizzle
 
@@ -373,8 +371,45 @@ Commit the SQL files and `drizzle/meta/` together, and keep the seed migration a
 part of the migration history so new databases can be initialized as well.
 
 The checklist supports search, part/status filters and pages of 75 issues.
-Read/unread changes save immediately to PostgreSQL. Editing is currently public
-and requires no token; an owner/admin view is planned separately.
+Read/unread changes save immediately to PostgreSQL and require an authenticated
+admin browser session. Visitors can view the progress without signing in.
+Public reading requests do not require working admin authentication; if an admin
+session cannot be checked, the comics page remains view-only. Changes still
+require a valid session and matching request Origin.
+
+### Single-owner admin access
+
+`/admin` uses authenticator-app TOTP codes, with no usernames, passwords, public
+registration, or users table. It provides a link to edit the Marvel checklist,
+lists active browser sessions, and allows signing out individual sessions or all
+browsers. Authentication is enforced by the server, including on the comics API.
+
+Authenticator enrolment is complete. Keep `ADMIN_TOTP_SECRET` and
+`ADMIN_RECOVERY_HASHES` in your private local environment and hosting variables,
+without `PUBLIC_` prefixes. Keep automatic time enabled on your phone and store
+the saved recovery codes securely. Each recovery code can sign in once using
+**Use a recovery code**. The one-time enrolment tooling has been removed.
+
+Apply database migrations before deploying. Local and deployed environments
+that share credentials use the same authenticator entry, but each database tracks
+browser sessions and consumed recovery codes independently.
+
+Browser sessions last seven days, use random 256-bit tokens in HTTP-only,
+SameSite=Strict cookies, and store only token hashes in `admin_sessions`.
+Production HTTPS cookies use the host-only `__Host-` prefix. Plain HTTP is allowed
+only on loopback development hostnames. Admin responses and comics pages are
+private/no-store so authentication-dependent content is not publicly cached.
+
+`admin_auth_state` stores throttling, the last accepted TOTP step, and consumed
+recovery-code hashes. Attempts are serialized by a PostgreSQL row lock. Five
+failed attempts in five minutes cause a five-minute global cooldown (including
+for the owner), and an accepted TOTP step cannot be reused. Editing endpoints
+also require a matching request Origin. No code or authentication secret is logged.
+
+If all recovery methods are lost, manually provision and enrol replacement
+credentials privately, and replace both deployment variables. Changing
+credentials invalidates previous sessions. Old database session rows are never
+accepted with the new credentials. Do not expose an unauthenticated reset route.
 
 ### Connecting Simkl
 
@@ -392,8 +427,15 @@ environments because refreshing can invalidate another instance's access token.
 
 ## Main game and Twitch stream
 
-Set `IGDB_GAME_ID`, `IGDB_CLIENT_ID`, and `IGDB_CLIENT_SECRET` as runtime
-settings. Twitch app credentials come from the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
+Set `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` as runtime settings. Sign in at
+`/admin` and use **Current main game** to save its numeric IGDB ID. The selection
+is stored in the `site_settings` table and can be cleared by saving an empty field.
+Apply database migrations before using this feature. Existing `IGDB_GAME_ID`
+environment variables are no longer used; select your initial game in the admin
+view after deployment. Changing the selection takes effect on the next games-page
+request without a rebuild. Selecting an ID does not verify that it exists on IGDB;
+an unknown ID shows the game's not-found placeholder.
+Twitch app credentials come from the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
 IGDB uses client-credentials authentication; its redirect URL is unused here
 (`http://localhost` is suitable for registration).
 See [IGDB documentation](https://api-docs.igdb.com/#getting-started).
@@ -412,7 +454,7 @@ Game links reuse the IGDB slug under your Infinite Backlog
 collection profile. Entries without a slug fall back to the profile link.
 
 `TwitchStream` embeds `meiloorun_`. Its parent hostname is supplied by the
-Astro route, including Worker previews and custom domains. Autoplay is off;
+Astro route, including Railway's generated domain and custom domains. Autoplay is off;
 narrow layouts show the direct Twitch button.
 
 ## Commands
