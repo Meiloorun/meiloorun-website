@@ -352,6 +352,30 @@ in Railway separately. Changing a local `.env` never changes Railway variables.
   ratings. Profile links remain available when an API is unavailable.
 - Comics uses `BATCAVE_PROFILE_URL` and an optional `BATCAVE_EMBED_URL`.
 
+### Marvel reading checklist
+
+The comics page includes a collapsible checklist backed by the `comic_issues`
+PostgreSQL table. Every issue has a source ID, title, year, reading-order
+position, source/reader links, read flag, and optional read timestamp. This is
+personal application data, not a disposable tracker cache; include it in database backups.
+
+The catalogue is populated once by the `0002_seed-marvel-comics.sql` data migration from
+[Comic Book Reading Orders](https://comicbookreadingorders.com/marvel/marvel-master-reading-order/),
+including public parts and linked events, with duplicate issue IDs counted once.
+Membership-only lists are excluded. The website has no scraper, import command,
+or dependency on the source website being available.
+
+Railway's existing `npm run db:migrate` pre-deploy command creates the table and
+inserts 19,997 issues over the private database connection. No public database
+endpoint is needed. Drizzle records the migration as applied, so later deployments
+skip it and preserve read/unread progress. Existing issue IDs are left untouched.
+Commit the SQL files and `drizzle/meta/` together, and keep the seed migration as
+part of the migration history so new databases can be initialized as well.
+
+The checklist supports search, part/status filters and pages of 75 issues.
+Read/unread changes save immediately to PostgreSQL. Editing is currently public
+and requires no token; an owner/admin view is planned separately.
+
 ### Connecting Simkl
 
 Register an AUTH V2 application in [Simkl developer settings](https://simkl.com/settings/developer/).
