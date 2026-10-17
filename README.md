@@ -274,6 +274,10 @@ switching branches to install the dependencies for that version.
 2. `railway.json` configures `npm run build`, `npm run db:migrate` before deployment,
    `npm start`, one replica and `/api/health` as the health check. Use Node 22.12 or newer; Railway supplies
    `PORT`, and the start script defaults `HOST` to `0.0.0.0`.
+   Migrations retry temporary connection failures up to six attempts, waiting
+   2, 4, 8, 16, and 30 seconds between attempts so a sleeping PostgreSQL service
+   can wake up. Broken pools are recreated between attempts; SQL, permissions,
+   and authentication errors fail immediately. Logs omit private driver details.
 3. Add tracker settings described below through Railway's **Variables** interface.
    Existing `.env` values can be copied privately;
    do not commit the file. Production does not automatically read `.env` or
