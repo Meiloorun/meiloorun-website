@@ -1,12 +1,12 @@
 import ical, { type VEvent } from 'node-ical';
 import { setting, trackerRuntime } from './trackerRuntime.mjs';
 import { trackerRequest } from './trackerRequest.mjs';
+import { calendarDateKey } from './dateKeys.ts';
 import type { LifeData, LifeDay, LifeEvent, LifeSourceState, LifeTask } from './lifeTypes.ts';
 
 export const lifeTimeZone = 'Europe/London';
-const dateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: lifeTimeZone, year: 'numeric', month: '2-digit', day: '2-digit' });
 const clock = new Intl.DateTimeFormat('en-GB', { timeZone: lifeTimeZone, hour: '2-digit', minute: '2-digit' });
-export const lifeDateKey = (date: Date) => dateFormatter.format(date);
+export const lifeDateKey = (date: Date) => calendarDateKey(date, lifeTimeZone);
 const text = (value: unknown): string => typeof value === 'string' ? value :
   value && typeof value === 'object' && 'val' in value && typeof value.val === 'string' ? value.val : '';
 
@@ -31,15 +31,26 @@ export function lifeDayStart(key: string): Date {
   return new Date(midnight.getTime() - minutes * 60000);
 }
 
-interface TickTask { id?: string; title?: string; status?: number; dueDate?: string; startDate?: string; isAllDay?: boolean; priority?: number; repeatFlag?: string }
+interface TickTask { id?: string; title?: string; status?: number; dueDate?: string; startDate?: string; timeZone?: string; isAllDay?: boolean; priority?: number; repeatFlag?: string }
 export function normalizeLifeTask(task: TickTask, list: string, projectId: string): LifeTask | undefined {
   if (typeof task?.id !== 'string' || typeof task.title !== 'string' || !task.id || !task.title || task.status === 2) return undefined;
   const value = task.dueDate || task.startDate;
   const date = value ? new Date(value) : undefined;
   const validDate = date && Number.isFinite(date.getTime()) ? date : undefined;
+  let day = validDate ? lifeDateKey(validDate) : undefined;
+  if (validDate && task.isAllDay) {
+    // A timestamp at local midnight can have yesterday's date in its UTC form.
+    // Resolve it in the task's own timezone; a date-only value needs no conversion.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value!)) day = value;
+    else {
+      try {
+        day = calendarDateKey(validDate, task.timeZone || lifeTimeZone);
+      } catch { /* Missing/invalid provider timezone falls back to the London date above. */ }
+    }
+  }
   return { id: `${projectId}:${task.id}`, title: task.title, list,
     href: `https://ticktick.com/webapp/#p/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(task.id)}`,
-    day: validDate ? task.isAllDay ? value!.slice(0, 10) : lifeDateKey(validDate) : undefined,
+    day,
     time: validDate && !task.isAllDay ? clock.format(validDate) : undefined,
     priority: task.priority || 0, recurring: !!task.repeatFlag };
 }

@@ -73,10 +73,25 @@ test('tasks distinguish dated, undated and completed entries without fabricating
   assert.equal(normalizeLifeTask(task, 'List', 'project').href, 'https://ticktick.com/webapp/#p/project/tasks/task');
   assert.equal(normalizeLifeTask({ ...task, id: 'task/?#' }, 'List', 'project/one').href, 'https://ticktick.com/webapp/#p/project%2Fone/tasks/task%2F%3F%23');
   assert.equal(normalizeLifeTask(task, 'List', 'project').day, '2026-10-20');
-  assert.equal(normalizeLifeTask({ ...task, isAllDay: true }, 'List', 'project').day, '2026-10-19');
+  assert.equal(normalizeLifeTask({ ...task, isAllDay: true }, 'List', 'project').day, '2026-10-20');
   assert.equal(normalizeLifeTask({ ...task, dueDate: undefined }, 'List', 'project').day, undefined);
   assert.equal(normalizeLifeTask({ ...task, status: 2 }, 'List', 'project'), undefined);
   assert.equal(normalizeLifeTask({ ...task, repeatFlag: 'RRULE:FREQ=DAILY' }, 'List', 'project').recurring, true);
+});
+
+test('all-day task dates use the task timezone across UTC midnight and daylight-saving changes', () => {
+  const task = { id: 'task', title: 'Example', isAllDay: true, timeZone: 'Europe/London' };
+  const normalize = fields => normalizeLifeTask({ ...task, ...fields }, 'List', 'project');
+  assert.equal(normalize({ dueDate: '2026-10-18T23:00:00+0000' }).day, '2026-10-19');
+  assert.equal(normalize({ dueDate: '2026-10-24T23:00:00+0000' }).day, '2026-10-25');
+  assert.equal(normalize({ dueDate: '2026-10-26T00:00:00+0000' }).day, '2026-10-26');
+  assert.equal(normalize({ dueDate: '2026-03-29T23:00:00+0000' }).day, '2026-03-30');
+  assert.equal(normalize({ dueDate: '2026-10-18T23:00:00+0000', timeZone: undefined }).day, '2026-10-19');
+  assert.equal(normalize({ dueDate: '2026-10-18T23:00:00+0000', timeZone: 'Invalid/Zone' }).day, '2026-10-19');
+  assert.equal(normalize({ dueDate: '2026-10-19T04:00:00+0000', timeZone: 'America/New_York' }).day, '2026-10-19');
+  assert.equal(normalize({ dueDate: '2026-10-19', timeZone: 'America/New_York' }).day, '2026-10-19');
+  assert.equal(normalize({ startDate: '2026-10-18T23:00:00+0000' }).day, '2026-10-19');
+  assert.equal(normalize({ dueDate: '2026-10-18T23:00:00+0000' }).time, undefined);
 });
 
 test('every life load fetches fresh sources without reading/writing storage, and sources fail independently', async () => {

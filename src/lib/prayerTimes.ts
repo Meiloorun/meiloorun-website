@@ -1,5 +1,6 @@
 import { parse } from 'node-html-parser';
 import { readCache, writeCache } from './cacheStorage.mjs';
+import { calendarDateKey } from './dateKeys.ts';
 
 export const prayerTimesSource = 'https://khuddam.org.uk/salat/';
 const prayerNames = ['Fajr', 'Zuhr', 'Asr', 'Maghrib', 'Isha'] as const;
@@ -38,7 +39,7 @@ export function parseMubarakSchedule(html: string): PrayerSchedule {
 
 /** A successful fetch is reusable only on the same Europe/London calendar date. */
 export async function loadPrayerTimes(now = new Date()): Promise<PrayerTimesResult> {
-  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const day = calendarDateKey(now, 'Europe/London');
   if (pending.has(day)) return pending.get(day)!;
   const task = (async (): Promise<PrayerTimesResult> => {
     try {
