@@ -94,6 +94,7 @@ export default function AdminPanel({ initialStatus, initialError = '' }: { initi
         <div className={styles.controls}><h2>WELCOME, MEILOORUN.</h2><button type="button" disabled={busy} onClick={() => void revoke({})}>Sign out</button></div>
         <MainGameSettings />
         <div className={styles.tools}>
+          <a href="/life">Personal life dashboard<small>Today's calendar, tasks, and the week ahead.</small></a>
           <a href="/media/comics">Marvel reading checklist <span aria-hidden="true">↗</span><small>Mark issues read or unread.</small></a>
         </div>
         <div className={styles.controls}><h2>YOUR BROWSER SESSIONS.</h2><button className={styles.secondary} type="button" disabled={busy} onClick={() => void refresh()}>Refresh</button></div>

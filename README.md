@@ -429,6 +429,47 @@ A confidential server app also requires `SIMKL_CLIENT_SECRET`.
 Use separate authorisations for independently running local/production
 environments because refreshing can invalidate another instance's access token.
 
+## Private life dashboard
+
+`/life` requires the existing admin browser session. Sign in at `/admin`, then
+open **Life** in the main navigation. Unauthenticated requests redirect before
+any provider is contacted; the rendered dashboard is private/no-store and noindex.
+
+Configure `TICKTICK_API_KEY` and numbered calendar settings in the private local
+`.env` and in Railway's runtime variables:
+
+```dotenv
+LIFE_CALENDAR_ICS_URL_1="your-first-private-https-ics-url"
+LIFE_CALENDAR_ICS_URL_2="your-second-private-https-ics-url"
+```
+
+All numeric suffixes are discovered automatically; gaps such as `_1`, `_3`, and
+`_10` work without any count setting or code changes. Blank settings are ignored,
+and identical URLs are fetched only once. The original `LIFE_CALENDAR_ICS_URL`
+also remains supported. Restart local development after changing `.env`; update
+Railway variables and redeploy/restart the service for production changes.
+Use each calendar's secret HTTPS iCal subscription URL, not a downloaded file
+or public sharing page. Never place these settings in public assets or `PUBLIC_`
+variables. Events from all working subscriptions are combined chronologically;
+one failed feed leaves the others visible with a partial-load warning.
+Tasks come from the lists returned by TickTick's public API; this does not assume
+that API coverage includes Inbox or completed history.
+
+Today has a larger calendar agenda and task list; the next six days have compact
+previews with expandable detail. Overdue and undated tasks appear separately.
+Dates use Europe/London, including daylight-saving transitions. Calendar repeat
+rules, excluded dates, overrides and multi-day/all-day events are expanded for
+the visible week. TickTick recurrence is labelled; future task instances are not
+invented beyond the instances returned by the API.
+
+Both sources are fetched live on each authorized page request. There are no feed
+cache reads/writes, completed-response memoization, or automatic polling. Use
+**Refresh live data** to reload both sources. Each source can fail independently;
+unavailable sources are labelled instead of falling back to old data. The view
+is read-only: make changes in TickTick or Google Calendar via the provided links.
+An ICS provider may still have its own publication delay. PostgreSQL remains
+required for admin sessions, but no new database migration is needed for `/life`.
+
 ## Main game and Twitch stream
 
 Set `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` as runtime settings. Sign in at

@@ -1,0 +1,14 @@
+---
+export const prerender = false;
+import PageLayout from '../layouts/PageLayout.astro';
+import LifePage from '../components/life/LifePage';
+import { loadLifeData } from '../lib/lifeFeed';
+
+if (!Astro.locals.adminSession) return Astro.redirect('/admin', 303);
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+const data = await loadLifeData();
+---
+<PageLayout title="Life | Meiloorun" description="Private daily agenda and tasks.">
+  <LifePage data={data} />
+</PageLayout>

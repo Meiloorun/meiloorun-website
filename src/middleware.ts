@@ -15,7 +15,7 @@ export const onRequest = defineMiddleware((context, next) => {
   if (!env.DATABASE_URL?.trim()) return Response.json({ status: 'unavailable' }, { status: 503 });
   return withNodeTrackerRuntime(env, async () => {
     const path = context.url.pathname.replace(/\/+$/, '') || '/';
-    const adminRoute = path === '/admin' || path.startsWith('/api/admin/');
+    const adminRoute = path === '/admin' || path.startsWith('/api/admin/') || path === '/life';
     const personalizedPage = path === '/media/comics';
     const mutation = path.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(context.request.method);
     context.locals.adminSession = null;

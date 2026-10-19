@@ -3,7 +3,7 @@ import styles from './SiteShell.module.css';
 
 export interface SiteShellProps {
   name: string;
-  currentPage?: '/projects' | '/media';
+  currentPage?: '/projects' | '/media' | '/life';
   children: ReactNode;
   skipTo?: string;
   headerNote?: ReactNode;
@@ -28,6 +28,7 @@ export function SiteShell({
             { label: '01 / Home', href: '/' },
             { label: '02 / Projects', href: '/projects' },
             { label: '03 / Media', href: '/media' },
+            { label: '04 / Life', href: '/life' },
           ].map(({ label, href }) => <a key={href} href={href} aria-current={href === currentPage ? 'page' : undefined}>{label}</a>)}
         </nav>
         {headerNote && <div className={styles.headerNote}>{headerNote}</div>}
