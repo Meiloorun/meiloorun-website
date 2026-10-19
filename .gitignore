@@ -30,3 +30,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Local operational documentation and agent notes
+/LOCAL_NOTES.md
