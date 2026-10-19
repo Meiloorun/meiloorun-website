@@ -202,7 +202,9 @@ export default function HomePage() {
             title="Everyday life"
             subtitle="What I need to exist."
             description="All the things that assist me in my day-to-day."
-          />
+          >
+            <ActionLink href="/life">FOR MY EYES ONLY</ActionLink>
+          </InterestPanel>
         </div>
       </Section>
       <Section
