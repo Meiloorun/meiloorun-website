@@ -1,6 +1,6 @@
 .streams {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 40px 32px;
   margin-top: 28px;
