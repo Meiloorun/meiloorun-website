@@ -446,7 +446,7 @@ See [IGDB documentation](https://api-docs.igdb.com/#getting-started).
 
 Keep exactly one CSV in `src/data/games_export/`. Delete the old export, add
 the new one, and deploy to update the backlog. There is no filename setting.
-Only game ID, title, platform, status, completion, completion date, and rating
+Only game ID, title, platform, status, completion, completion date, playtime, and rating
 reach the browser; private notes and purchase details are omitted.
 The collection shows playing entries, recent completions, and an expandable
 full library. The snapshot date comes from the export filename.

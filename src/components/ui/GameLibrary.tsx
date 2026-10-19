@@ -1,4 +1,4 @@
-import { gameCollectionUrl, type GameLibrary as LibraryData, type LibraryGame } from '../../lib/gameLibrary';
+import { formatGamePlaytime, gameCollectionUrl, type GameLibrary as LibraryData, type LibraryGame } from '../../lib/gameLibrary';
 import type { LibraryGameArtwork } from '../../lib/igdb';
 import { ActionLink } from './ActionLink';
 import styles from './GameLibrary.module.css';
@@ -16,13 +16,16 @@ export function GameLibrary({ library, artwork, profileUrl }: { library: Library
     <section aria-labelledby="library-completed"><h3 className={styles.heading} id="library-completed">Recently completed</h3>
       <GameCards games={library.recentlyCompleted} artwork={artwork} profileUrl={profileUrl} empty="No dated completions in this snapshot." showCompletion />
     </section>
-    <details className={styles.collection}><summary>Browse the full collection / {library.entries.length} entries</summary>
+    <details className={styles.collection}><summary id="full-collection-top">Browse the full collection / {library.entries.length} entries</summary>
       <ul className={styles.fullList}>{[...library.entries].sort((a, b) => a.title.localeCompare(b.title)).map((game, i) => {
         const entryUrl = gameCollectionUrl(game.igdbId ? artwork[game.igdbId]?.slug : undefined, profileUrl);
+        const playtime = formatGamePlaytime(game.playtime);
         return <li key={i}>
           <strong><a href={entryUrl ?? profileUrl} target="_blank" rel="noopener noreferrer" aria-label={`${game.title}: ${entryUrl ? 'open my Infinite Backlog entry' : 'browse my Infinite Backlog collection'} (opens in a new tab)`}>{game.title}</a></strong><span>{[game.platform, game.status || 'No status', game.completion].filter(Boolean).join(' / ')}</span>
+          {playtime && <span>Playtime: {playtime}</span>}
         </li>;
       })}</ul>
+      <a className={styles.backToTop} href="#full-collection-top">Back to collection top ↑</a>
     </details>
   </div>;
 }
