@@ -5,13 +5,15 @@ import { ActionLink } from '../ui/ActionLink';
 import { DecorativeImage } from '../ui/DecorativeImage';
 import type { LifeData, LifeDay, LifeSourceState, LifeTask } from '../../lib/lifeTypes';
 import styles from './LifePage.module.css';
+import { PrayerTimes } from './PrayerTimes';
+import type { PrayerTimesResult } from '../../lib/prayerTimes';
 
 const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' });
 const sourceMessages: Record<LifeSourceState, string> = {
   ready: 'Up to date', partial: 'Some sources could not be loaded', unconfigured: 'Not connected', unavailable: 'Could not load. Try refreshing.',
 };
 
-export default function LifePage({ data }: { data: LifeData }) {
+export default function LifePage({ data, prayers }: { data: LifeData; prayers: PrayerTimesResult }) {
   const [today, ...upcoming] = data.days;
   return <SiteShell name="Meiloorun" currentPage="/life" headerNote={<>ONE DAY<br />AT A TIME.</>} footerNote="PRIVATE / PERSONAL LIFE">
     <Section headingLevel={1} eyebrow={<InkLabel tone="yellow">PERSONAL / ADMIN ACCESS</InkLabel>}
@@ -31,6 +33,7 @@ export default function LifePage({ data }: { data: LifeData }) {
     </Section>
     <Section title="TODAY / the main event" divider="top">
       <div className={styles.todayHeader}><h3>{today.label}</h3><span>{today.events.length} events / {today.tasks.length} tasks</span></div>
+      <PrayerTimes result={prayers} />
       <div className={styles.today}>
         <div className={styles.panel}><h3>THE AGENDA.</h3><Events day={today} state={data.calendarState} /></div>
         <div className={styles.panel}><h3>ON THE LIST.</h3><Tasks tasks={today.tasks} state={data.tasksState} empty="No tasks scheduled for today." /></div>
