@@ -1,8 +1,11 @@
 ﻿---
 import HomePage from '../components/home/HomePage';
 import PageLayout from '../layouts/PageLayout.astro';
+import { TwitterTimeline } from '../components/ui/TwitterTimeline';
 ---
 
 <PageLayout title="Meiloorun">
-  <HomePage />
+  <HomePage>
+    <TwitterTimeline slot="timeline" client:visible />
+  </HomePage>
 </PageLayout>
