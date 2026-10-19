@@ -6,9 +6,10 @@ import { ActionLink } from '../ui/ActionLink';
 import { InterestPanel } from '../ui/InterestPanel';
 import { DecorativeImage } from '../ui/DecorativeImage';
 import styles from './HomePage.module.css';
+import type { ReactNode } from 'react';
 
 /** All homepage sections use the shared Section component directly. */
-export default function HomePage() {
+export default function HomePage({ timeline }: { timeline?: ReactNode }) {
   return (
     <SiteShell
       name="Meiloorun"
@@ -240,9 +241,12 @@ export default function HomePage() {
         }
       >
         <InkLabel>Behind the curtains</InkLabel>
-        <h2 id="about-title">Hey, I’m Meiloorun.</h2>
+        <h2 id="about-title">yo, i'm Meiloorun.</h2>
         <p>This site is to hold all my weight. I wanted a space on the internet for myself where I can just put things and here it is.</p>
         <ActionLink variant="plain" href="#top">Back to origin</ActionLink>
+      </Section>
+      <Section id="timeline" title="FROM THE TIMELINE." divider="top">
+        {timeline}
       </Section>
     </SiteShell>
   );
