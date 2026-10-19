@@ -1,11 +1,23 @@
 
 export interface LibraryGame {
   igdbId?: number; title: string; platform: string; status: string; completion: string;
-  completedOn?: string; rating?: string;
+  completedOn?: string; rating?: string; playtime?: string;
 }
 export interface GameLibrary {
   entries: LibraryGame[]; playing: LibraryGame[]; recentlyCompleted: LibraryGame[];
   snapshotDate?: string;
+}
+
+/** Infinite Backlog exports playtime in minutes. Empty/zero values stay hidden. */
+export function formatGamePlaytime(value: string | undefined): string | undefined {
+  const total = Math.floor(Number(value));
+  if (!Number.isFinite(total) || total <= 0) return undefined;
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  return [
+    hours ? `${hours} ${hours === 1 ? 'hour' : 'hours'}` : '',
+    minutes ? `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}` : '',
+  ].filter(Boolean).join(' ');
 }
 
 /** Handles CSV escaping, quoted commas/newlines, CRLF, and UTF-8 BOMs. */
@@ -53,6 +65,7 @@ export function importGameLibrary(source: string, filename: string): GameLibrary
       igdbId: /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)) ? Number(id) : undefined,
       title, platform: cell('Platform'), status: cell('Status'), completion: cell('Completion'),
       completedOn: cell('Completion date') || undefined, rating: cell('Rating (Score)') || undefined,
+      playtime: cell('Playtime') || undefined,
     };
   });
   const recentlyCompleted = entries.filter(game => ['beaten', 'completed'].includes(game.completion.toLowerCase()) && game.completedOn && /^\d{4}(-\d{2})?(-\d{2})?$/.test(game.completedOn))

@@ -11,11 +11,7 @@ export function MediaLayout({ title, description, children, hub = false, heroArt
 }) {
   return (
     <SiteShell name="Meiloorun"
-      navigation={[
-        { label: '01 / Home', href: '/' },
-        { label: '02 / Projects', href: '/projects' },
-        { label: '03 / Media', href: '/media', current: hub },
-      ]}
+      currentPage="/media"
       headerNote={<>I have the greatest taste<br />of all time, no?</>}
       footerNote="PLAY / READ / WATCH / LISTEN"
       decorations={<>

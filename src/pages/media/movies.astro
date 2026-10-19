@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+import { setting } from '../../lib/trackerRuntime.mjs';
 import MoviesPage from '../../components/media/MoviesPage';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { loadSimkl } from '../../lib/mediaTrackers';
@@ -6,6 +8,6 @@ const feed = await loadSimkl();
 ---
 
 <PageLayout title="Movies | Meiloorun" description="Meiloorun's movies: favourites, trackers, and recent activity.">
-  <MoviesPage profileUrl={import.meta.env.SIMKL_PROFILE_URL || undefined} feed={feed.movies} />
+  <MoviesPage profileUrl={setting('SIMKL_PROFILE_URL')} feed={feed.movies} />
 </PageLayout>
 

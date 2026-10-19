@@ -16,10 +16,20 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.env.*
+!.env.example
 .cache/
+# Keep credentials and generated state from older deployments out of Git.
+.dev.vars
+.dev.vars.*
+.wrangler/
+.collector.env
 
 # macOS-specific files
 .DS_Store
 
 # jetbrains setting folder
 .idea/
+
+# Local operational documentation and agent notes
+/LOCAL_NOTES.md

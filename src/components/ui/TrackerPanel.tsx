@@ -13,13 +13,19 @@ export interface TrackerFeed {
   topArtistsState?: TrackerFeed['state'];
   updatedAt?: string;
 }
+export interface NowPlayingFeed {
+  state: TrackerFeed['state'];
+  current: MediaEntry[];
+  checkedAt: string;
+  retryAfter?: number;
+}
 
 /** Always retains an external link, whether displaying a feed, an embed, or neither. */
 export function TrackerPanel({ name, profileUrl, feed, currentLabel = 'Currently consuming',
-  recentLabel = 'Recent activity', currentVisual, embedUrl, emptyMessage = 'The collection will appear here once the tracker is connected.',
+  recentLabel = 'Recent activity', currentVisual, currentContent, embedUrl, emptyMessage = 'The collection will appear here once the tracker is connected.',
 }: {
   name: string; profileUrl: string; feed?: TrackerFeed; currentLabel?: string;
-  recentLabel?: string; currentVisual?: ReactNode; embedUrl?: string; emptyMessage?: string;
+  recentLabel?: string; currentVisual?: ReactNode; currentContent?: ReactNode; embedUrl?: string; emptyMessage?: string;
 }) {
   const id = useId();
   return <div className={styles.panel}>
@@ -27,19 +33,20 @@ export function TrackerPanel({ name, profileUrl, feed, currentLabel = 'Currently
       <span className={styles.source}>TRACKED ON / {name}</span>
       <ActionLink href={profileUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${name} in a new tab`}>Open {name}</ActionLink>
     </div>
-    {feed?.state === 'ready' ? <>
+    {feed?.state === 'ready' || currentContent ? <>
       <div className={styles.feeds}>
         <section aria-labelledby={`${id}-current`}>
           <h3 id={`${id}-current`}>{currentLabel}</h3>
           {currentVisual}
-          <EntryList entries={feed.current} empty="Nothing recorded here right now." />
+          {currentContent ?? <EntryList entries={feed?.current ?? []} empty="Nothing recorded here right now." />}
         </section>
         <section aria-labelledby={`${id}-recent`}>
           <h3 id={`${id}-recent`}>{recentLabel}</h3>
-          <EntryList entries={feed.recent} empty="No recent activity to show." />
+          {feed?.state === 'ready' ? <EntryList entries={feed.recent} empty="No recent activity to show." /> :
+            <p className={styles.empty}>{feed?.state === 'unavailable' ? 'Listening history is unavailable right now.' : emptyMessage}</p>}
         </section>
       </div>
-      {feed.updatedAt && <p className={styles.timestamp}>Tracker snapshot: <time dateTime={feed.updatedAt}>{new Date(feed.updatedAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC</time></p>}
+      {feed?.updatedAt && <p className={styles.timestamp}>Tracker snapshot: <time dateTime={feed.updatedAt}>{new Date(feed.updatedAt).toLocaleString('en-GB', { timeZone: 'UTC' })} UTC</time></p>}
     </> : <p className={styles.empty}>{feed?.state === 'unavailable' ? 'The tracker is unavailable right now. You can still open it above.' : emptyMessage}</p>}
     {embedUrl && feed?.state !== 'ready' && <details className={styles.embed}>
       <summary>View {name} here</summary>
@@ -49,7 +56,7 @@ export function TrackerPanel({ name, profileUrl, feed, currentLabel = 'Currently
   </div>;
 }
 
-function EntryList({ entries, empty }: { entries: MediaEntry[]; empty: string }) {
+export function EntryList({ entries, empty }: { entries: MediaEntry[]; empty: string }) {
   return entries.length ? <ul className={styles.entries}>{entries.map((entry, index) =>
     <li key={`${entry.href}-${index}`}>
       {entry.image && <img src={entry.image} alt="" width={70} height={96} loading="lazy" />}

@@ -1,15 +1,9 @@
 import type { ReactNode } from 'react';
 import styles from './SiteShell.module.css';
 
-export interface NavigationItem {
-  label: string;
-  href: string;
-  current?: boolean;
-}
-
 export interface SiteShellProps {
   name: string;
-  navigation: readonly NavigationItem[];
+  currentPage?: '/projects' | '/media' | '/life';
   children: ReactNode;
   skipTo?: string;
   headerNote?: ReactNode;
@@ -19,7 +13,7 @@ export interface SiteShellProps {
 
 /** Shared page chrome. Sections and their content remain the page's responsibility. */
 export function SiteShell({
-  name, navigation, children, skipTo = '#main-content', headerNote, footerNote, decorations,
+  name, currentPage, children, skipTo = '#main-content', headerNote, footerNote, decorations,
 }: SiteShellProps) {
   return (
     <div className={styles.page} id="top">
@@ -30,7 +24,12 @@ export function SiteShell({
           {name}<span aria-hidden="true">®</span>
         </a>
         <nav className={styles.nav} aria-label="Main navigation">
-          {navigation.map(({ label, href, current }) => <a key={href} href={href} aria-current={current ? 'page' : undefined}>{label}</a>)}
+          {[
+            { label: '01 / Home', href: '/' },
+            { label: '02 / Projects', href: '/projects' },
+            { label: '03 / Media', href: '/media' },
+            { label: '04 / Life', href: '/life' },
+          ].map(({ label, href }) => <a key={href} href={href} aria-current={href === currentPage ? 'page' : undefined}>{label}</a>)}
         </nav>
         {headerNote && <div className={styles.headerNote}>{headerNote}</div>}
       </header>
@@ -38,7 +37,7 @@ export function SiteShell({
       <footer className={styles.footer}>
         <span>{name} / PERSONAL SPACE</span>
         {footerNote && <span className={styles.footerNote}>{footerNote}</span>}
-        <span aria-hidden="true">✳</span>
+        <img className={styles.footerDecoration} src="/images/deco-7.svg" alt="" aria-hidden="true" width={28} height={28} draggable={false} />
       </footer>
     </div>
   );

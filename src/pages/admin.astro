@@ -1,0 +1,22 @@
+---
+export const prerender = false;
+import PageLayout from '../layouts/PageLayout.astro';
+import AdminPage from '../components/admin/AdminPage';
+import AdminPanel from '../components/admin/AdminPanel';
+import { currentAdminConfig, adminDatabase } from '../lib/adminRequest';
+import { listAdminSessions } from '../lib/adminAuth';
+import type { AdminStatus } from '../lib/adminTypes';
+
+const session = Astro.locals.adminSession;
+const config = currentAdminConfig();
+const status: AdminStatus = { configured: !!config, authenticated: !!session, sessions: [] };
+let error = '';
+try {
+  if (config && session) status.sessions = await listAdminSessions(adminDatabase(), config, session.id);
+} catch { error = 'Browser sessions could not be loaded. Please retry.'; }
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+---
+<PageLayout title="Admin | Meiloorun" description="Private owner controls.">
+  <AdminPage><AdminPanel slot="panel" client:load initialStatus={status} initialError={error} /></AdminPage>
+</PageLayout>

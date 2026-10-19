@@ -1,30 +1,23 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readCache, writeCache } from './cacheStorage.mjs';
+import { trackerDiagnostic } from './trackerRequest.mjs';
 
 const pending = new Map();
 
 /** Cache successful feeds and back off after failures. No request URLs or credentials are saved. */
-export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
-  const path = join(cacheDir, `${createHash('sha256').update(key).digest('hex')}.json`);
+export function cachedMediaFeed(key, maxAge, load) {
+  const path = `.cache/media/${createHash('sha256').update(key).digest('hex')}.json`;
   if (pending.has(path)) return pending.get(path);
   const task = (async () => {
-    let cached;
-    try {
-      cached = JSON.parse(await readFile(path, 'utf8'));
-      if (cached.version !== 1) cached = undefined;
-    } catch { /* A missing or invalid cache can be rebuilt. */ }
+    let cached = await readCache(path);
+    if (cached?.version !== 1) cached = undefined;
     const hasValue = cached && 'value' in cached;
     if (hasValue && Date.now() - cached.savedAt < maxAge) return cached.value;
     if (cached?.retryAfter > Date.now()) {
       if (hasValue) return cached.value;
-      throw new Error('Tracker refresh is backing off');
+      throw Object.assign(new Error('Tracker refresh is backing off'), { ...cached.failure, code: 'cache-backoff' });
     }
-    const save = async value => {
-      await mkdir(cacheDir, { recursive: true });
-      await writeFile(`${path}.tmp`, JSON.stringify(value), { mode: 0o600 });
-      await rename(`${path}.tmp`, path);
-    };
+    const save = value => writeCache(path, value);
     try {
       const value = await load();
       await save({ version: 1, savedAt: Date.now(), value });
@@ -32,9 +25,9 @@ export function cachedMediaFeed(key, maxAge, load, cacheDir = '.cache/media') {
     } catch (error) {
       // Preserve original snapshot dates; failures never count as successful refreshes.
       const retryDelay = Math.max(300000, Number(error.retryDelay) || 0);
-      await save({ ...(hasValue ? cached : { version: 1 }), retryAfter: Date.now() + retryDelay });
+      await save({ ...(hasValue ? cached : { version: 1 }), retryAfter: Date.now() + retryDelay, failure: trackerDiagnostic(error) });
       if (hasValue) {
-        console.warn('Tracker refresh unavailable; using its previous cached snapshot.');
+        console.warn('Tracker refresh unavailable; using its previous cached snapshot.', trackerDiagnostic(error));
         return cached.value;
       }
       throw error;

@@ -36,7 +36,12 @@
 }
 
 .cross {
-  font: 48px / 1 var(--font-body);
+  display: block;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .introCopy p {

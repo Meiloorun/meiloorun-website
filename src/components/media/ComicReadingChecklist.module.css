@@ -1,0 +1,41 @@
+.checklist { border: var(--border-heavy); box-shadow: 7px 7px 0 var(--color-ink); background: var(--color-paper); }
+.heading { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; padding: clamp(18px, 3vw, 32px); cursor: pointer; background: var(--color-accent); list-style: none; }
+.heading::-webkit-details-marker { display: none; }
+.heading:focus-visible, .body :is(button, input, select, a):focus-visible { outline: 3px solid var(--color-ink); outline-offset: 4px; }
+.title { font-family: var(--font-display); font-size: clamp(1.7rem, 3vw, 2.8rem); line-height: 1; }
+.counter { font: bold .8rem var(--font-label); margin-left: auto; }
+.expand { font-size: 2rem; line-height: 1; }
+.checklist[open] .expand { transform: rotate(45deg); }
+.body { padding: clamp(16px, 3vw, 32px); border-top: var(--border-heavy); }
+.progress { display: block; width: 100%; height: 14px; accent-color: var(--color-ink); }
+.intro { line-height: 1.6; }
+.intro a { text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.body button { cursor: pointer; background: var(--color-ink); color: var(--color-paper); border: 2px solid var(--color-ink); padding: 10px 14px; font: bold .8rem var(--font-label); }
+.body button:disabled { opacity: .45; cursor: default; }
+.body :is(input:not([type=checkbox]), select) { padding: 10px; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font: inherit; min-width: 0; max-width: 100%; }
+.filters { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .6fr) minmax(0, 1.2fr); gap: 16px; }
+.filters label { display: grid; gap: 8px; font: bold .8rem var(--font-label); }
+.search > div { display: flex; gap: 6px; margin-top: 8px; }
+.search input { width: 100%; }
+.status { font: .8rem var(--font-label); margin-block: 24px 12px; }
+.error { margin-top: 20px; padding: 12px; border: 2px solid var(--color-ink); }
+.issues { list-style: none; padding: 0; margin: 0; }
+.issue { display: flex; gap: 16px; align-items: center; border-top: 1px solid var(--color-muted); padding: 14px 0; }
+.issue label { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.issue input { width: 21px; height: 21px; flex-shrink: 0; accent-color: var(--color-ink); }
+.issueTitle { flex: 1; overflow-wrap: anywhere; line-height: 1.5; }
+.issueTitle small { color: var(--color-muted); white-space: nowrap; }
+.position, .readLabel, .issue > a { font: .75rem var(--font-label); }
+.position { color: var(--color-muted); }
+.issue[data-read=true] .issueTitle { color: var(--color-muted); }
+.readLabel { min-width: 48px; text-transform: uppercase; }
+.issue > a { white-space: nowrap; text-underline-offset: 3px; }
+.pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 24px; font: .8rem var(--font-label); }
+@media (max-width: 760px) {
+  .filters { grid-template-columns: 1fr; }
+  .counter { margin-left: 0; }
+  .expand { margin-left: auto; }
+  .title { width: 100%; }
+  .position, .readLabel { display: none; }
+  .issue label { gap: 10px; }
+}
