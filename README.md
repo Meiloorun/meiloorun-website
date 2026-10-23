@@ -3,7 +3,7 @@
 
 My personal website, built with Astro and React and hosted on Railway.
 
-Requires Node 22.12+, PostgreSQL, and a private `.env` for local dev.
+Requires Node 24.22.1+, PostgreSQL, and a private `.env` for local dev.
 
 sits on https://meiloorun.gg/
 
