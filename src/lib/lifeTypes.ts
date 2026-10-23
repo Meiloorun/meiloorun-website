@@ -1,4 +1,4 @@
-export type LifeSourceState = 'ready' | 'unconfigured' | 'unavailable' | 'partial';
+export type LifeSourceState = 'ready' | 'unconfigured' | 'unavailable' | 'partial' | 'stale';
 export interface LifeTask {
   id: string; title: string; href: string; list: string; day?: string; time?: string; priority: number; recurring: boolean;
 }

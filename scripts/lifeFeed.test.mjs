@@ -94,11 +94,14 @@ test('all-day task dates use the task timezone across UTC midnight and daylight-
   assert.equal(normalize({ dueDate: '2026-10-18T23:00:00+0000' }).time, undefined);
 });
 
-test('every life load fetches fresh sources without reading/writing storage, and sources fail independently', async () => {
+test('life loads cache tasks while calendars stay live and sources fail independently', async () => {
   const originalFetch = globalThis.fetch;
   let calls = 0, failCalendar = false;
   const env = { TICKTICK_API_KEY: 'synthetic-key', LIFE_CALENDAR_ICS_URL: 'https://calendar.test/private.ics' };
-  const run = () => withTrackerRuntime({ env, storage: { get: () => assert.fail('No cache reads'), put: () => assert.fail('No cache writes') } }, () => loadLifeData(now));
+  const cache = new Map();
+  const run = () => withTrackerRuntime({ env, storage: {
+    get: async key => structuredClone(cache.get(key)), put: async (key, value) => cache.set(key, structuredClone(value)),
+  } }, () => loadLifeData(now));
   globalThis.fetch = async (input, init) => {
     calls++;
     assert.equal(init.cache, 'no-store');
@@ -122,7 +125,7 @@ test('every life load fetches fresh sources without reading/writing storage, and
     assert.equal(first.undated.length, 1);
     assert.equal(calls, 3);
     await run();
-    assert.equal(calls, 6, 'No completed response is reused');
+    assert.equal(calls, 4, 'Only the calendar is fetched again while tasks are fresh');
     failCalendar = true;
     const failed = await run();
     assert.equal(failed.calendarState, 'unavailable');
@@ -132,6 +135,51 @@ test('every life load fetches fresh sources without reading/writing storage, and
     const unconfigured = await withTrackerRuntime({ env: {} }, () => loadLifeData(now));
     assert.equal(unconfigured.tasksState, 'unconfigured');
     assert.equal(unconfigured.calendarState, 'unconfigured');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('task cache expires after one minute, manual refresh overwrites it, and failed refreshes retain saved tasks', async () => {
+  const originalFetch = globalThis.fetch;
+  const cache = new Map();
+  let calls = 0, title = 'Original task', fail = false;
+  const run = (elapsed = 0, refreshTasks = false, credential = 'cache-test-key') => withTrackerRuntime({
+    env: { TICKTICK_API_KEY: credential }, storage: {
+      get: async key => structuredClone(cache.get(key)), put: async (key, value) => cache.set(key, structuredClone(value)),
+    },
+  }, () => loadLifeData(new Date(now.getTime() + elapsed), { refreshTasks }));
+  globalThis.fetch = async input => {
+    calls++;
+    if (fail) return new Response('', { status: 503 });
+    return new URL(input).pathname.endsWith('/project') ? Response.json([{ id: 'p', name: 'List' }])
+      : Response.json({ tasks: [{ id: 'task', title }] });
+  };
+  try {
+    const [first, concurrent] = await Promise.all([run(), run()]);
+    assert.deepEqual(first.undated, concurrent.undated);
+    assert.equal(calls, 2, 'Overlapping page requests share a single task pull');
+    title = 'Updated task';
+    assert.equal((await run(1000)).undated[0].title, 'Original task');
+    assert.equal(calls, 2);
+    assert.equal((await run(2000, true)).undated[0].title, 'Updated task');
+    assert.equal(calls, 4, 'Manual refresh bypasses fresh cached data');
+    assert.equal((await run(3000)).undated[0].title, 'Updated task', 'Manual result was persisted');
+    assert.equal(calls, 4);
+    title = 'Expired-cache replacement';
+    assert.equal((await run(62000)).undated[0].title, title);
+    assert.equal(calls, 6);
+    fail = true;
+    const stale = await run(63000, true);
+    assert.equal(stale.tasksState, 'stale');
+    assert.equal(stale.undated[0].title, title);
+    assert.equal((await run(64000)).tasksState, 'stale');
+    assert.equal(calls, 7, 'Failed refreshes back off on ordinary page loads');
+    fail = false;
+    title = 'Recovered';
+    assert.equal((await run(65000, true)).undated[0].title, title, 'Manual refresh bypasses failure backoff too');
+    assert.equal(cache.size, 1);
+    assert.ok(!JSON.stringify([...cache]).includes('cache-test-key'), 'No API key is stored in the cache');
+    await run(66000, false, 'different-credential');
+    assert.equal(calls, 11, 'Changing credentials never reuses another account snapshot');
   } finally { globalThis.fetch = originalFetch; }
 });
 

@@ -1,7 +1,9 @@
 import ical, { type VEvent } from 'node-ical';
+import { createHash } from 'node:crypto';
 import { setting, trackerRuntime } from './trackerRuntime.mjs';
 import { trackerRequest } from './trackerRequest.mjs';
 import { calendarDateKey } from './dateKeys.ts';
+import { readCache, writeCache } from './cacheStorage.mjs';
 import type { LifeData, LifeDay, LifeEvent, LifeSourceState, LifeTask } from './lifeTypes.ts';
 
 export const lifeTimeZone = 'Europe/London';
@@ -55,7 +57,39 @@ export function normalizeLifeTask(task: TickTask, list: string, projectId: strin
     priority: task.priority || 0, recurring: !!task.repeatFlag };
 }
 
-async function loadLifeTasks(): Promise<{ state: LifeSourceState; tasks: LifeTask[] }> {
+type TaskFeed = { state: LifeSourceState; tasks: LifeTask[] };
+type TaskSnapshot = { version: 1; feed: TaskFeed; expiresAt: number };
+const taskCacheDuration = 60000;
+const pendingTasks = new Map<string, Promise<TaskFeed>>();
+
+/** Cache normalized tasks, scoped to the configured credential; never store the API key. */
+async function loadLifeTasks(now: number, refresh: boolean): Promise<TaskFeed> {
+  const credential = setting('TICKTICK_API_KEY')?.trim().replace(/^Bearer\s+/i, '');
+  if (!credential) return { state: 'unconfigured', tasks: [] };
+  const cacheKey = `life/ticktick/v1/${createHash('sha256').update(credential).digest('hex')}`;
+  // An overlapping live fetch also satisfies a manual refresh.
+  if (pendingTasks.has(cacheKey)) return pendingTasks.get(cacheKey)!;
+  const task = (async (): Promise<TaskFeed> => {
+    let cached: TaskSnapshot | undefined;
+    try {
+      cached = await readCache(cacheKey) as TaskSnapshot | undefined;
+      if (cached?.version !== 1) cached = undefined;
+    } catch { console.warn('TickTick task cache could not be read.'); }
+    if (!refresh && cached && cached.expiresAt > now) return cached.feed;
+    const live = await fetchLifeTasks();
+    // Keep a complete saved list if some project requests fail during a refresh.
+    const feed: TaskFeed = (live.state === 'unavailable' || live.state === 'partial') && cached && cached.feed.state !== 'unavailable'
+      ? { ...cached.feed, state: 'stale' } : live;
+    try { await writeCache(cacheKey, { version: 1, feed, expiresAt: now + taskCacheDuration }); }
+    catch { console.warn('TickTick task cache could not be saved.'); }
+    return feed;
+  })();
+  pendingTasks.set(cacheKey, task);
+  try { return await task; }
+  finally { pendingTasks.delete(cacheKey); }
+}
+
+async function fetchLifeTasks(): Promise<TaskFeed> {
   const key = setting('TICKTICK_API_KEY')?.trim().replace(/^Bearer\s+/i, '');
   if (!key) return { state: 'unconfigured', tasks: [] };
   const get = (path: string) => trackerRequest(`https://api.ticktick.com/open/v1/${path}`, {
@@ -185,10 +219,10 @@ async function loadLifeCalendars(days: LifeDay[]): Promise<{ state: LifeSourceSt
   return { state: loaded === feeds.length ? 'ready' : loaded ? 'partial' : 'unavailable', days: merged };
 }
 
-/** Live, read-only data. No database writes, feed cache or completed-request memoization. */
-export async function loadLifeData(now = new Date()): Promise<LifeData> {
+/** Calendar subscriptions stay live; tasks use a one-minute database cache. */
+export async function loadLifeData(now = new Date(), { refreshTasks = false } = {}): Promise<LifeData> {
   const days = lifeDays(now);
-  const [tasks, calendar] = await Promise.all([loadLifeTasks(), loadLifeCalendars(days)]);
+  const [tasks, calendar] = await Promise.all([loadLifeTasks(now.getTime(), refreshTasks), loadLifeCalendars(days)]);
   const sorted = tasks.tasks.sort((a, b) => (a.day || '9999').localeCompare(b.day || '9999') ||
     (a.time || '').localeCompare(b.time || '') || b.priority - a.priority || a.title.localeCompare(b.title));
   for (const day of calendar.days) day.tasks = sorted.filter(task => task.day === day.date);

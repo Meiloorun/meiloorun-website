@@ -8,7 +8,10 @@ import { loadPrayerTimes } from '../lib/prayerTimes';
 if (!Astro.locals.adminSession) return Astro.redirect('/admin', 303);
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 Astro.response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-const [data, prayers] = await Promise.all([loadLifeData(), loadPrayerTimes()]);
+const [data, prayers] = await Promise.all([
+  loadLifeData(new Date(), { refreshTasks: Astro.url.searchParams.get('refresh') === 'tasks' }),
+  loadPrayerTimes(),
+]);
 ---
 <PageLayout title="Life | Meiloorun" description="Private daily agenda and tasks.">
   <LifePage data={data} prayers={prayers} />

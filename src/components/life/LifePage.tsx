@@ -10,6 +10,7 @@ import type { PrayerTimesResult } from '../../lib/prayerTimes';
 
 const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' });
 const sourceMessages: Record<LifeSourceState, string> = {
+  stale: 'Showing saved tasks; refresh failed',
   ready: 'Up to date', partial: 'Some sources could not be loaded', unconfigured: 'Not connected', unavailable: 'Could not load. Try refreshing.',
 };
 
@@ -21,7 +22,7 @@ export default function LifePage({ data, prayers }: { data: LifeData; prayers: P
       decorations={<DecorativeImage src="/images/deco-7.svg" placement="top-right" width="110px" rotation={10} opacity={0.5} hideOnMobile />}>
       <p className={styles.intro}>A little structure for everything outside the screen. Here's what today looks like.</p>
       <div className={styles.toolbar}>
-        <ActionLink href="/life">Refresh live data ↻</ActionLink>
+        <ActionLink href="/life?refresh=tasks">Refresh live data ↻</ActionLink>
         <a href="https://ticktick.com/webapp/" target="_blank" rel="noopener noreferrer">Open TickTick ↗</a>
         <a href="https://calendar.google.com/" target="_blank" rel="noopener noreferrer">Open Google Calendar ↗</a>
       </div>
