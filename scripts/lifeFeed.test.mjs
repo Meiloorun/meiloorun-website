@@ -5,18 +5,23 @@ import { withTrackerRuntime } from '../src/lib/trackerRuntime.mjs';
 
 const now = new Date('2026-10-19T10:00:00Z');
 
-test('calendar settings discover numeric suffixes with gaps and ignore blanks, duplicates and unrelated settings', () => {
+test('calendar settings discover names and legacy numbers and ignore blanks, duplicates and unrelated settings', () => {
   assert.deepEqual(lifeCalendarFeeds({
     LIFE_CALENDAR_ICS_URL_10: ' https://calendar.test/ten ',
     LIFE_CALENDAR_ICS_URL_2: 'https://calendar.test/one',
     LIFE_CALENDAR_ICS_URL_1: 'https://calendar.test/one',
-    LIFE_CALENDAR_ICS_URL_5: '   ', LIFE_CALENDAR_ICS_URL_other: 'https://calendar.test/ignored',
-    LIFE_CALENDAR_ICS_URL_3_BACKUP: 'https://calendar.test/ignored',
+    LIFE_CALENDAR_ICS_URL_5: '   ', LIFE_CALENDAR_ICS_URL_WORK: 'https://calendar.test/work',
+    LIFE_CALENDAR_ICS_URL_Personal_Events: ' https://calendar.test/personal ',
+    LIFE_CALENDAR_ICS_URL_: 'https://calendar.test/no-name',
+    LIFE_CALENDAR_ICS_URL_WRONG_TYPE: 123,
+    OTHER_CALENDAR_ICS_URL_WORK: 'https://calendar.test/ignored',
     LIFE_CALENDAR_ICS_URL: 'https://calendar.test/original', TICKTICK_API_KEY: 'synthetic-key',
   }), [
     { key: 'LIFE_CALENDAR_ICS_URL', url: 'https://calendar.test/original' },
     { key: 'LIFE_CALENDAR_ICS_URL_1', url: 'https://calendar.test/one' },
     { key: 'LIFE_CALENDAR_ICS_URL_10', url: 'https://calendar.test/ten' },
+    { key: 'LIFE_CALENDAR_ICS_URL_Personal_Events', url: 'https://calendar.test/personal' },
+    { key: 'LIFE_CALENDAR_ICS_URL_WORK', url: 'https://calendar.test/work' },
   ]);
 });
 const calendar = `BEGIN:VCALENDAR
@@ -183,15 +188,15 @@ test('task cache expires after one minute, manual refresh overwrites it, and fai
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test('numbered calendars merge with unique event IDs, remain uncached, and survive individual feed failures', async () => {
+test('named calendars merge with unique event IDs, remain uncached, and survive individual feed failures', async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];
   let fail = 'one';
   const env = {
-    LIFE_CALENDAR_ICS_URL_1: 'https://calendar.test/first',
-    LIFE_CALENDAR_ICS_URL_3: 'https://calendar.test/third',
-    LIFE_CALENDAR_ICS_URL_10: 'https://calendar.test/failing',
-    LIFE_CALENDAR_ICS_URL_11: 'https://calendar.test/first',
+    LIFE_CALENDAR_ICS_URL_A_PERSONAL: 'https://calendar.test/first',
+    LIFE_CALENDAR_ICS_URL_B_WORK: 'https://calendar.test/third',
+    LIFE_CALENDAR_ICS_URL_C_OTHER: 'https://calendar.test/failing',
+    LIFE_CALENDAR_ICS_URL_D_DUPLICATE: 'https://calendar.test/first',
   };
   globalThis.fetch = async (input, init) => {
     const url = new URL(input);

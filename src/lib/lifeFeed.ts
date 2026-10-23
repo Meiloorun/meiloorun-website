@@ -161,9 +161,9 @@ export async function calendarLifeDays(source: string, days: LifeDay[]): Promise
   return result;
 }
 
-/** Discover all numbered settings, including gaps; keep the original setting compatible. */
+/** Discover named calendars; existing numeric suffixes and the original setting also work. */
 export function lifeCalendarFeeds(env: Record<string, unknown>): { key: string; url: string }[] {
-  const keys = Object.keys(env).filter(key => /^LIFE_CALENDAR_ICS_URL(?:_\d+)?$/.test(key))
+  const keys = Object.keys(env).filter(key => /^LIFE_CALENDAR_ICS_URL(?:_.+)?$/.test(key))
     .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
   const seen = new Set<string>();
   return keys.flatMap(key => {
