@@ -51,7 +51,7 @@ export default function ProjectsPage() {
           <Project
             title="Meiloorun — Personal site"
             number="01"
-            status="In progress"
+            status="Completed"
             featured
             image={{ src: '/images/intro.svg', alt: 'Meiloorun artwork from the homepage.', width: 600, height: 700 }}
             description="My personal website (which you are currently on). This is my home on the internet."
@@ -61,7 +61,7 @@ export default function ProjectsPage() {
               { label: 'Source', href: 'https://github.com/meiloorun/meiloorun-website' },
             ]}
           >
-            <p className={styles.projectNote}>A living project. The design and the collection keep growing together.</p>
+            <p className={styles.projectNote}>i cooked i fear.</p>
           </Project>
           <Project
             title="Sami Tracker"
@@ -110,6 +110,20 @@ export default function ProjectsPage() {
             ]}
           >
             <p className={styles.projectNote}>Current Version - 2.0</p>
+          </Project>
+          <Project
+            title="YRG Tierlist"
+            number="06"
+            status="In Development"
+            description="This is a lil site I made for putting YRG members on a tierlist, using their twitch and twitter accounts."
+            image={{ src: '/images/yrg.jpg', alt: 'YRG Tierlist.', width: 600, height: 700 }}
+            tags={['Svelte', 'TypeScript', 'Tailwind CSS', 'PostgreSQL', 'Railway']}
+            links={[
+              { label: 'Open the Site', href: 'https://yrgtierlist.meiloorun.gg/' },
+              { label: 'Source', href: 'https://github.com/Meiloorun/yrg-tierlist/' }
+            ]}
+          >
+            <p className={styles.projectNote}>Shoutouts to YRG</p>
           </Project>
         </div>
       </Section>

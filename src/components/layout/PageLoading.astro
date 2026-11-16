@@ -1,0 +1,41 @@
+---
+import { LoadingScreen } from '../ui/LoadingScreen';
+---
+
+<div id="page-loading" hidden>
+  <LoadingScreen />
+</div>
+
+<script>
+  const overlay = document.getElementById('page-loading');
+  const content = document.getElementById('page-content');
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const reset = () => {
+    clearTimeout(timer);
+    if (overlay) overlay.hidden = true;
+    if (content) { content.inert = false; content.removeAttribute('aria-busy'); }
+  };
+  document.addEventListener('click', event => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target instanceof Element ? event.target.closest('a[href]') : null;
+    if (!(target instanceof HTMLAnchorElement) || target.hasAttribute('download') || target.dataset.loading === 'off') return;
+    const browsingTarget = target.target || document.querySelector('base')?.target;
+    if (browsingTarget && browsingTarget !== '_self') return;
+    const url = new URL(target.href);
+    if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) return;
+    if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+    if (url.pathname.startsWith('/api/') || /\.[a-z0-9]+$/i.test(url.pathname)) return;
+    // Let other handlers cancel navigation before deciding to show feedback.
+    queueMicrotask(() => {
+      if (event.defaultPrevented) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (overlay) overlay.hidden = false;
+        if (content) { content.inert = true; content.setAttribute('aria-busy', 'true'); }
+      }, 150);
+    });
+  });
+  window.addEventListener('pageshow', reset);
+  window.addEventListener('pagehide', reset);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') reset(); });
+</script>
