@@ -1,0 +1,47 @@
+.screen {
+  --loading-inset: clamp(24px, 5vw, 80px);
+  background: var(--color-paper, #f4f3ed);
+  color: var(--color-ink, #111110);
+  isolation: isolate;
+}
+.fullScreen { position: fixed; inset: 0; z-index: 10000; }
+.contained { position: relative; min-height: 460px; height: 100%; }
+.message {
+  position: absolute;
+  left: var(--loading-inset);
+  right: calc(var(--loading-inset) + 210px);
+  top: 75%;
+  margin: 0;
+  font: clamp(16px, 2vw, 24px) / 1.6 var(--font-label, monospace);
+  overflow-wrap: anywhere;
+  max-width: 54ch;
+}
+.indicator {
+  position: absolute;
+  right: max(var(--loading-inset), env(safe-area-inset-right));
+  bottom: max(var(--loading-inset), env(safe-area-inset-bottom));
+  width: clamp(120px, 13vw, 180px);
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+.logo { width: 112px; height: 112px; object-fit: contain; animation: spin 3s linear infinite; }
+.bar { width: 100%; height: 9px; padding: 1px; border: 1px solid currentColor; overflow: hidden; }
+.fill { display: block; height: 100%; width: var(--progress); background: var(--color-accent, #ffd600); }
+.bar[data-indeterminate] .fill { width: 45%; animation: travel 1.5s ease-in-out infinite alternate; }
+.label { font: bold 10px / 1.5 var(--font-label, monospace); letter-spacing: .16em; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes travel { from { transform: translateX(-110%); } to { transform: translateX(230%); } }
+@media (max-width: 600px) {
+  .message { top: 76%; right: calc(var(--loading-inset) + 144px); font-size: 15px; }
+  .indicator { gap: 12px; }
+  .logo { width: 80px; height: 80px; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+  .logo { width: 72px; height: 72px; }
+  .indicator { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo, .bar[data-indeterminate] .fill { animation: none; }
+  .bar[data-indeterminate] .fill { width: 100%; opacity: .55; }
+}
